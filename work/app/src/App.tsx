@@ -906,6 +906,50 @@ function App() {
         </article>
       </section>
 
+      <section className="panel landing-panel">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">{copy.productProfile}</p>
+            <h2>{copy.productProfileTitle}</h2>
+          </div>
+        </div>
+
+        <div className="landing-grid">
+          <article className="landing-card landing-card-wide">
+            <span>{copy.aboutLabel}</span>
+            <h3>{copy.aboutTitle}</h3>
+            <p>{copy.aboutBody}</p>
+          </article>
+
+          <article className="landing-card">
+            <span>{copy.validationLabel}</span>
+            <h3>{copy.validationTitle}</h3>
+            <ul>
+              <li>{copy.validationBullet1}</li>
+              <li>{copy.validationBullet2}</li>
+              <li>{copy.validationBullet3}</li>
+            </ul>
+          </article>
+
+          <article className="landing-card">
+            <span>{copy.methodsLabel}</span>
+            <h3>{copy.methodsTitle}</h3>
+            <ul>
+              <li>{copy.methodsBullet1}</li>
+              <li>{copy.methodsBullet2}</li>
+              <li>{copy.methodsBullet3}</li>
+            </ul>
+          </article>
+
+          <article className="landing-card landing-card-wide">
+            <span>{copy.citationLabel}</span>
+            <h3>{copy.citationTitle}</h3>
+            <p>{copy.citationBody}</p>
+            <code className="citation-block">{copy.citationText}</code>
+          </article>
+        </div>
+      </section>
+
       <main className="grid">
         <section className="panel upload-panel">
           <div className="section-head">
@@ -1744,6 +1788,27 @@ function getCopy(language: Language) {
       correctBody: '在同一界面微调泳道、目标带和内参 ROI。',
       composeTitle: '出图',
       composeBody: '导出标签、条带、柱状图和告警一致的发表级组图。',
+      productProfile: '产品概览',
+      productProfileTitle: '围绕 blot figure generation 的本地优先科研工作站',
+      aboutLabel: 'About',
+      aboutTitle: '为 Western Blot、Dot Blot 与凝胶半定量设计的一体化发表流程',
+      aboutBody:
+        'BlotBench Studio 将原始曝光导入、泳道与条带草拟、ROI 校正、内参归一化、统计比较与组图导出收束到同一工作界面，减少 ImageJ、Excel、GraphPad 与 PPT 之间的手工转抄与排版误差。',
+      validationLabel: 'Validation',
+      validationTitle: '面向可解释性，而非黑箱自动化',
+      validationBullet1: '所有 ROI、泳道与条带边界均可人工复核和微调，自动结果从不锁死。',
+      validationBullet2: '导出的统计图、裁剪图与 SVG/PDF 共享同一分析对象，避免屏幕结果与最终图稿不一致。',
+      validationBullet3: '项目快照可恢复原图托盘、统计参数与组图布局，便于复查、复现实验记录。',
+      methodsLabel: 'Methods',
+      methodsTitle: '局部自动识别，整条链路本地运行',
+      methodsBullet1: '浏览器端处理 TIFF/JPG/PNG，自动起草泳道、目标条带与内参条带 ROI。',
+      methodsBullet2: '以内参归一化为核心，支持 Welch t、置换检验与 ANOVA 事后比较。',
+      methodsBullet3: '直接输出 publication-ready 的 SVG、PDF、CSV 与项目 JSON，用于论文、补充材料与后续复算。',
+      citationLabel: 'Citation',
+      citationTitle: '建议在方法或补充材料中说明使用的图像整理流程',
+      citationBody:
+        '若 BlotBench Studio 参与了图像裁剪、半定量或组图导出，建议在 Methods 或 Figure preparation 中记录软件名称、版本号和本地分析流程。',
+      citationText: 'BlotBench Studio v1.0.0 | local-first blot layout, semi-quantification, and figure-board export workflow',
       sourcePanels: '源图面板',
       imageTray: '图像托盘',
       loadDemoPanel: '加载演示面板',
@@ -1868,6 +1933,27 @@ function getCopy(language: Language) {
     correctBody: 'Fine-tune lane, target, and reference ROIs in the same surface that runs quantification.',
     composeTitle: 'Compose',
     composeBody: 'Export a board where labels, bands, chart, and warnings already agree.',
+    productProfile: 'Product profile',
+    productProfileTitle: 'A local-first research workstation for blot figure generation',
+    aboutLabel: 'About',
+    aboutTitle: 'An integrated publication workflow for Western Blot, Dot Blot, and gel semi-quantification',
+    aboutBody:
+      'BlotBench Studio keeps raw exposure intake, lane and band drafting, ROI correction, loading-control normalization, statistical comparison, and figure-board export inside one work surface, reducing handoffs across ImageJ, Excel, GraphPad, and slide software.',
+    validationLabel: 'Validation',
+    validationTitle: 'Built for interpretability, not black-box automation',
+    validationBullet1: 'Every ROI, lane, and band boundary remains reviewable and editable; auto-drafted results are never locked.',
+    validationBullet2: 'Charts, crops, and exported SVG/PDF are generated from the same analysis objects, preventing drift between on-screen review and final figures.',
+    validationBullet3: 'Project snapshots restore source panels, statistical settings, and board layout so figure preparation can be revisited and reproduced.',
+    methodsLabel: 'Methods',
+    methodsTitle: 'Local image handling with selective automation across the full chain',
+    methodsBullet1: 'TIFF/JPG/PNG panels are processed in-browser, with automatic drafting of lanes, target bands, and loading-control ROIs.',
+    methodsBullet2: 'Semi-quantification is centered on loading-control normalization with Welch t-tests, permutation tests, and ANOVA post-hoc comparisons.',
+    methodsBullet3: 'Publication-ready SVG, PDF, CSV, and project JSON outputs support manuscript figures, supplements, and downstream re-analysis.',
+    citationLabel: 'Citation',
+    citationTitle: 'Document the figure-preparation workflow in methods or supplementary notes',
+    citationBody:
+      'If BlotBench Studio is used for image cropping, semi-quantification, or figure-board export, record the software name, version, and local analysis workflow in the Methods or figure-preparation section.',
+    citationText: 'BlotBench Studio v1.0.0 | local-first blot layout, semi-quantification, and figure-board export workflow',
     sourcePanels: 'Source panels',
     imageTray: 'Image tray',
     loadDemoPanel: 'Load demo panel',
