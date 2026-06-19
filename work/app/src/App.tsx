@@ -1203,6 +1203,34 @@ function App() {
                   <small>{copy.laneCountValue(settings.laneCount)}</small>
                 </label>
                 <label>
+                  <span>{copy.laneWidth}</span>
+                  <input
+                    type="range"
+                    min="0.52"
+                    max="0.92"
+                    step="0.01"
+                    value={settings.laneWidthScale}
+                    onChange={(event) =>
+                      updateSettings('laneWidthScale', Number(event.target.value))
+                    }
+                  />
+                  <small>{percent(settings.laneWidthScale)}</small>
+                </label>
+                <label>
+                  <span>{copy.laneHeight}</span>
+                  <input
+                    type="range"
+                    min="0.18"
+                    max="0.72"
+                    step="0.01"
+                    value={settings.laneHeight}
+                    onChange={(event) =>
+                      updateSettings('laneHeight', Number(event.target.value))
+                    }
+                  />
+                  <small>{percent(settings.laneHeight)}</small>
+                </label>
+                <label>
                   <span>{copy.targetRow}</span>
                   <input
                     type="range"
@@ -1836,6 +1864,8 @@ function getCopy(language: Language) {
       modeGel: '凝胶条带',
       laneCount: '泳道数量',
       laneCountValue: (count: number) => `${count} 条泳道`,
+      laneWidth: '泳道宽度',
+      laneHeight: '泳道高度',
       targetRow: '目标条带行',
       referenceRow: '参考行',
       loadingControlRow: '内参条带行',
@@ -1845,9 +1875,9 @@ function getCopy(language: Language) {
       contrastTrim: '对比度微调',
       invertPanel: '反相图像',
       roiControls: 'ROI 操作',
-      roiControlsBody1: '在图像上选择泳道、目标带或参考带。',
-      roiControlsBody2: '拖动 ROI 本体可移动，拖动小圆点可缩放。',
-      roiControlsBody3: '方向键可微调，`[` 和 `]` 可快速对称缩放。',
+      roiControlsBody1: '蓝色虚线框是泳道 ROI，橙色框是目标条带，青色框是内参条带。',
+      roiControlsBody2: '拖动 ROI 本体可移动；边缘和角上的小圆点是缩放手柄，用于调整宽度和高度。',
+      roiControlsBody3: '先用左侧滑杆粗调泳道宽度/高度，再对单条 ROI 微调；方向键可微调，`[` 和 `]` 可快速对称缩放。',
       experimentalLedger: '实验台账',
       sampleSheet: '样本表',
       lane: '泳道',
@@ -1981,6 +2011,8 @@ function getCopy(language: Language) {
     modeGel: 'Gel band',
     laneCount: 'Lane count',
     laneCountValue: (count: number) => `${count} lanes`,
+    laneWidth: 'Lane width',
+    laneHeight: 'Lane height',
     targetRow: 'Target row',
     referenceRow: 'Reference row',
     loadingControlRow: 'Loading control row',
@@ -1990,9 +2022,9 @@ function getCopy(language: Language) {
     contrastTrim: 'Contrast trim',
     invertPanel: 'Invert panel',
     roiControls: 'ROI controls',
-    roiControlsBody1: 'Select lane, target, or reference in the image.',
-    roiControlsBody2: 'Drag the ROI body to move it. Drag the small handles to resize.',
-    roiControlsBody3: 'Arrow keys nudge. `[` and `]` still provide quick symmetric resizing.',
+    roiControlsBody1: 'The dashed blue frame is the lane ROI, the amber frame is the target band, and the teal frame is the loading control.',
+    roiControlsBody2: 'Drag a ROI body to move it. The small dots on edges and corners are resize handles for width and height.',
+    roiControlsBody3: 'Use the lane width and lane height sliders for coarse fitting first, then fine-tune a single ROI. Arrow keys nudge; `[` and `]` still resize symmetrically.',
     experimentalLedger: 'Experimental ledger',
     sampleSheet: 'Sample sheet',
     lane: 'Lane',

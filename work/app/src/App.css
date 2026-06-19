@@ -502,13 +502,14 @@
 
 .resize-handle {
   position: absolute;
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  border: 1px solid rgba(31, 23, 17, 0.8);
-  background: #fff8f0;
+  border: 1px solid rgba(63, 53, 42, 0.82);
+  background: #f8eee0;
   z-index: 3;
   cursor: nwse-resize;
+  box-shadow: 0 0 0 2px rgba(255, 251, 245, 0.92);
 }
 
 .resize-n,
@@ -529,6 +530,11 @@
 .resize-nw,
 .resize-se {
   cursor: nwse-resize;
+}
+
+.resize-handle:hover {
+  background: #c25d34;
+  border-color: #8f4123;
 }
 
 .rail {

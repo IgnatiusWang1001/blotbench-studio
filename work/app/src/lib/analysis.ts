@@ -17,6 +17,8 @@ export interface AnalysisSettings {
   laneCount: number
   laneInset: number
   laneGap: number
+  laneHeight: number
+  laneWidthScale: number
   primaryY: number
   referenceY: number
   bandHeight: number
@@ -103,6 +105,8 @@ export const defaultSettings: AnalysisSettings = {
   laneCount: 6,
   laneInset: 0.08,
   laneGap: 0.018,
+  laneHeight: 0.42,
+  laneWidthScale: 0.72,
   primaryY: 0.31,
   referenceY: 0.69,
   bandHeight: 0.11,
@@ -149,14 +153,16 @@ export function buildDefaultDrafts({
   const laneInsetPx = width * settings.laneInset
   const laneGapPx = width * settings.laneGap
   const usableWidth = width - laneInsetPx * 2 - laneGapPx * (settings.laneCount - 1)
-  const laneWidth = usableWidth / settings.laneCount
-  const laneHeight = height * 0.9
-  const laneTop = height * 0.05
+  const baseLaneWidth = usableWidth / settings.laneCount
+  const laneWidth = baseLaneWidth * settings.laneWidthScale
+  const laneHeight = height * settings.laneHeight
+  const laneTop = clamp(height * 0.5 - laneHeight / 2, height * 0.04, height - laneHeight - height * 0.04)
   const bandHeightPx = height * settings.bandHeight
   const bandWidthFactor = settings.mode === 'dot' ? 0.66 : 0.82
 
   return Array.from({ length: settings.laneCount }, (_, index) => {
-    const laneX = laneInsetPx + index * (laneWidth + laneGapPx)
+    const slotX = laneInsetPx + index * (baseLaneWidth + laneGapPx)
+    const laneX = slotX + (baseLaneWidth - laneWidth) / 2
     const lane: Rect = { x: laneX, y: laneTop, width: laneWidth, height: laneHeight }
     const bandWidth = laneWidth * bandWidthFactor
     const bandX = laneX + (laneWidth - bandWidth) / 2
@@ -575,19 +581,21 @@ export function autoDraftFromSignal(
     .map((center, index) => center - laneCenters[index])
     .filter((value) => value > segmentWidth * 0.35)
   const estimatedSpacing = median(centerDiffs) || segmentWidth
-  const laneWidth = Math.max(
-    segmentWidth * 0.58,
-    estimatedSpacing * 0.72,
-  )
+  const laneWidth = Math.max(segmentWidth * 0.5, estimatedSpacing * settings.laneWidthScale)
   const bandWidth = laneWidth * (settings.mode === 'dot' ? 0.62 : 0.82)
-  const laneHeight = signalBounds.height
+  const laneHeight = Math.max(gray.height * 0.12, signalBounds.height * settings.laneHeight)
+  const laneTop = clamp(
+    signalBounds.y + signalBounds.height * 0.5 - laneHeight / 2,
+    gray.height * 0.04,
+    gray.height - laneHeight - gray.height * 0.04,
+  )
   const bandHeight = Math.max(signalBounds.height * settings.bandHeight, gray.height * 0.04)
 
   return laneCenters.map((center, index) => {
     const laneX = clamp(center - laneWidth / 2, signalBounds.x, signalBounds.x + signalBounds.width - laneWidth)
     const lane: Rect = {
       x: laneX,
-      y: signalBounds.y,
+      y: laneTop,
       width: laneWidth,
       height: laneHeight,
     }

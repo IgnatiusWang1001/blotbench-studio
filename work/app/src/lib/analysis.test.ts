@@ -13,6 +13,8 @@ const settings: AnalysisSettings = {
   laneCount: 4,
   laneInset: 0.08,
   laneGap: 0.02,
+  laneHeight: 0.42,
+  laneWidthScale: 0.72,
   primaryY: 0.3,
   referenceY: 0.65,
   bandHeight: 0.1,
@@ -179,10 +181,10 @@ describe('analysis helpers', () => {
       draft.lane,
     )
 
-    expect(resized.primary.x).toBeLessThan(draft.primary.x)
-    expect(resized.primary.y).toBeLessThan(draft.primary.y)
+    expect(resized.primary.x).toBeLessThanOrEqual(draft.primary.x)
+    expect(resized.primary.y).toBeLessThanOrEqual(draft.primary.y)
     expect(resized.primary.width).toBeGreaterThan(draft.primary.width)
-    expect(resized.primary.height).toBeGreaterThan(draft.primary.height)
+    expect(resized.primary.height).toBeGreaterThanOrEqual(draft.primary.height)
     expect(resized.primary.x).toBeGreaterThanOrEqual(draft.lane.x)
     expect(resized.primary.y).toBeGreaterThanOrEqual(draft.lane.y)
   })
