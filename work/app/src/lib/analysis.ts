@@ -519,17 +519,25 @@ export function summarizeGroups(lanes: LaneResult[]): GroupSummary[] {
 
 export function detectSignalBounds(gray: GrayImage): Rect {
   const rowProfile = buildRowProfile(gray)
-  const rowBand = longestBandAboveThreshold(rowProfile)
+  const rowBand = outerBandAboveThreshold(
+    rowProfile,
+    0.18,
+    Math.max(2, Math.round(gray.height * 0.01)),
+  )
   const colProfile = buildColumnProfile(gray, rowBand.start, rowBand.end)
-  const colBand = longestBandAboveThreshold(colProfile)
+  const colBand = outerBandAboveThreshold(
+    colProfile,
+    0.12,
+    Math.max(3, Math.round(gray.width * 0.008)),
+  )
   const padX = gray.width * 0.02
   const padY = gray.height * 0.02
 
   return {
     x: clamp(colBand.start - padX, 0, gray.width - 1),
     y: clamp(rowBand.start - padY, 0, gray.height - 1),
-    width: clamp(colBand.end - colBand.start + padX * 2, gray.width * 0.4, gray.width),
-    height: clamp(rowBand.end - rowBand.start + padY * 2, gray.height * 0.2, gray.height),
+    width: clamp(colBand.end - colBand.start + padX * 2, gray.width * 0.25, gray.width),
+    height: clamp(rowBand.end - rowBand.start + padY * 2, gray.height * 0.08, gray.height),
   }
 }
 
@@ -789,6 +797,47 @@ function longestBandAboveThreshold(profile: Float32Array) {
   }
 
   return { start: bestStart, end: bestEnd }
+}
+
+function outerBandAboveThreshold(
+  profile: Float32Array,
+  thresholdRatio: number,
+  minRunLength: number,
+) {
+  const average = mean(Array.from(profile))
+  const peak = Math.max(...Array.from(profile), average)
+  const threshold = average + (peak - average) * thresholdRatio
+  const runs: Array<{ start: number; end: number }> = []
+  let currentStart = -1
+
+  for (let index = 0; index < profile.length; index += 1) {
+    if (profile[index] >= threshold) {
+      if (currentStart === -1) {
+        currentStart = index
+      }
+      continue
+    }
+
+    if (currentStart !== -1) {
+      if (index - currentStart >= minRunLength) {
+        runs.push({ start: currentStart, end: index })
+      }
+      currentStart = -1
+    }
+  }
+
+  if (currentStart !== -1 && profile.length - currentStart >= minRunLength) {
+    runs.push({ start: currentStart, end: profile.length - 1 })
+  }
+
+  if (!runs.length) {
+    return longestBandAboveThreshold(profile)
+  }
+
+  return {
+    start: runs[0].start,
+    end: runs[runs.length - 1].end,
+  }
 }
 
 function detectBandCenterY(

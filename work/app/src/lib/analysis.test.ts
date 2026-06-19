@@ -63,6 +63,34 @@ describe('analysis helpers', () => {
     expect(drafts[0].primary.y).toBeLessThan(drafts[0].reference?.y ?? 999)
   })
 
+  it('keeps broad horizontal signal coverage when right-side bands are weaker', () => {
+    const width = 900
+    const height = 260
+    const signal = new Float32Array(width * height)
+    const display = new Uint8ClampedArray(width * height)
+    display.fill(228)
+
+    const laneXs = [40, 120, 210, 305, 405, 515, 620, 730, 830]
+    laneXs.forEach((laneX, index) => {
+      const strength = index < 5 ? 175 : 90
+      for (let y = 108; y < 128; y += 1) {
+        for (let x = laneX; x < laneX + 34; x += 1) {
+          signal[y * width + x] = strength
+          display[y * width + x] = index < 5 ? 48 : 120
+        }
+      }
+    })
+
+    const gray = { width, height, signal, display }
+    const bounds = detectSignalBounds(gray)
+    const drafts = autoDraftFromSignal(gray, bounds, { ...settings, laneCount: 9 })
+
+    expect(bounds.x).toBeLessThan(80)
+    expect(bounds.x + bounds.width).toBeGreaterThan(820)
+    expect(drafts).toHaveLength(9)
+    expect(drafts[8].lane.x).toBeGreaterThan(760)
+  })
+
   it('summarizes group means and sem', () => {
     const summary = summarizeGroups([
       {
