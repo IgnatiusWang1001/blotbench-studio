@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ChangeEvent,
+  CSSProperties,
   DragEvent as ReactDragEvent,
   KeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -88,6 +89,7 @@ function App() {
         )
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const projectInputRef = useRef<HTMLInputElement | null>(null)
+  const stageImageRef = useRef<HTMLImageElement | null>(null)
   const restoredBoardSettings: FigureBoardSettings = restoredProject?.figureBoardSettings ?? {
     title: 'Composed blot figure',
     columns: 1,
@@ -132,6 +134,7 @@ function App() {
   )
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
   const [isDragActive, setIsDragActive] = useState(false)
+  const [stageFrame, setStageFrame] = useState({ width: 1000, height: 640 })
   const [language, setLanguage] = useState<Language>(() => {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
     if (stored === 'zh' || stored === 'en') {
@@ -313,6 +316,26 @@ function App() {
     }
   }, [copy.pageDescription, copy.pageTitle, language])
 
+  useEffect(() => {
+    function syncStageFrame() {
+      const element = stageImageRef.current
+      if (!element) {
+        return
+      }
+      const nextWidth = element.clientWidth || 1000
+      const nextHeight = element.clientHeight || 640
+      setStageFrame((current) =>
+        current.width === nextWidth && current.height === nextHeight
+          ? current
+          : { width: nextWidth, height: nextHeight },
+      )
+    }
+
+    syncStageFrame()
+    window.addEventListener('resize', syncStageFrame)
+    return () => window.removeEventListener('resize', syncStageFrame)
+  }, [activePanelId, activeAnalysis?.width, activeAnalysis?.height])
+
   const activeGeometries =
     activePanel && activeDrafts.length
       ? buildLaneGeometries({
@@ -327,6 +350,16 @@ function App() {
           settings,
           drafts: buildDefaultDrafts({ width: 1000, height: 620, settings }),
         })
+  const stageMetrics = useMemo(
+    () =>
+      computeStageMetrics(
+        activeAnalysis?.width ?? 1000,
+        activeAnalysis?.height ?? 620,
+        stageFrame.width,
+        stageFrame.height,
+      ),
+    [activeAnalysis?.height, activeAnalysis?.width, stageFrame.height, stageFrame.width],
+  )
 
   function updateSettings<K extends keyof AnalysisSettings>(
     key: K,
@@ -682,8 +715,8 @@ function App() {
     }
     event.preventDefault()
 
-    const scaleX = (activeAnalysis?.width ?? 1000) / event.currentTarget.clientWidth
-    const scaleY = (activeAnalysis?.height ?? 620) / event.currentTarget.clientHeight
+    const scaleX = (activeAnalysis?.width ?? 1000) / stageMetrics.width
+    const scaleY = (activeAnalysis?.height ?? 620) / stageMetrics.height
     const deltaX = (event.clientX - dragState.startX) * scaleX
     const deltaY = (event.clientY - dragState.startY) * scaleY
     const bounds = {
@@ -1046,11 +1079,12 @@ function App() {
               {activePanel ? (
                 <>
                   <img
+                    ref={stageImageRef}
                     src={activeAnalysis?.processedUrl ?? activePanel.url}
                     alt={activePanel.name}
                     className="stage-image"
                   />
-                  <div className="overlay" onMouseUp={handleOverlayMouseUp}>
+                  <div className="overlay" style={overlayStyle(stageMetrics)} onMouseUp={handleOverlayMouseUp}>
                     {activeGeometries.map((geometry, index) => (
                       <div
                         key={geometry.id}
@@ -1641,6 +1675,32 @@ function innerPercentRect(lane: Rect, rect: Rect) {
 
 function percent(value: number) {
   return `${Math.round(value * 100)}%`
+}
+
+function computeStageMetrics(
+  imageWidth: number,
+  imageHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+) {
+  const scale = Math.min(frameWidth / imageWidth, frameHeight / imageHeight)
+  const width = imageWidth * scale
+  const height = imageHeight * scale
+  return {
+    width,
+    height,
+    offsetX: (frameWidth - width) / 2,
+    offsetY: (frameHeight - height) / 2,
+  }
+}
+
+function overlayStyle(metrics: ReturnType<typeof computeStageMetrics>): CSSProperties {
+  return {
+    left: `${metrics.offsetX}px`,
+    top: `${metrics.offsetY}px`,
+    width: `${metrics.width}px`,
+    height: `${metrics.height}px`,
+  }
 }
 
 function describeLaneDiagnosis(
