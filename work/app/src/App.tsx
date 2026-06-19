@@ -56,6 +56,10 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
 
+type Language = 'en' | 'zh'
+
+const LANGUAGE_STORAGE_KEY = 'blotbench-language-v1'
+
 function App() {
   const restoredProject = loadAutosave()
   const restoredPanels = restoredProject?.panels ?? []
@@ -133,6 +137,14 @@ function App() {
   )
   const [isOffline, setIsOffline] = useState(!navigator.onLine)
   const [isDragActive, setIsDragActive] = useState(false)
+  const [language, setLanguage] = useState<Language>(() => {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY)
+    if (stored === 'zh' || stored === 'en') {
+      return stored
+    }
+    return navigator.language.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  })
+  const copy = useMemo(() => getCopy(language), [language])
 
   const activePanel = useMemo(
     () => panels.find((panel) => panel.id === activePanelId) ?? null,
@@ -296,6 +308,16 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language)
+    document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en'
+    document.title = copy.pageTitle
+    const description = document.querySelector('meta[name="description"]')
+    if (description) {
+      description.setAttribute('content', copy.pageDescription)
+    }
+  }, [copy.pageDescription, copy.pageTitle, language])
+
   const activeGeometries =
     activePanel && activeDrafts.length
       ? buildLaneGeometries({
@@ -429,6 +451,10 @@ function App() {
     }
 
     setInstallState('unavailable')
+  }
+
+  function toggleLanguage() {
+    setLanguage((current) => (current === 'en' ? 'zh' : 'en'))
   }
 
   async function handleLoadDemo() {
@@ -801,10 +827,10 @@ function App() {
     <div className="shell">
       {showAutosaveBanner ? (
         <section className="panel autosave-banner">
-          <strong>Recovered the last local session.</strong>
-          <span>The current workspace was restored from browser autosave.</span>
+          <strong>{copy.autosaveRecoveredTitle}</strong>
+          <span>{copy.autosaveRecoveredBody}</span>
           <button type="button" className="button ghost" onClick={handleRestoreAutosaveDismiss}>
-            Dismiss
+            {copy.dismiss}
           </button>
         </section>
       ) : null}
@@ -812,36 +838,37 @@ function App() {
       <header className="masthead panel">
         <div>
           <p className="eyebrow">BlotBench Studio</p>
-          <h1>Western Blot / Dot Blot / Gel figure line, not four disconnected apps.</h1>
-          <p className="lede">
-            Upload raw exposures, auto-draft lanes, correct ROIs in place,
-            quantify against a loading control, and leave with a figure board that
-            already looks like it belongs in a paper.
-          </p>
+          <div className="masthead-topline">
+            <h1>{copy.heroTitle}</h1>
+            <button type="button" className="button ghost language-toggle" onClick={toggleLanguage}>
+              {copy.languageToggle}
+            </button>
+          </div>
+          <p className="lede">{copy.heroBody}</p>
         </div>
         <div className="masthead-meta">
           <div className="meta-card">
-            <span>Mode</span>
-            <strong>{modeLabel(settings.mode)}</strong>
+            <span>{copy.mode}</span>
+            <strong>{modeLabel(settings.mode, language)}</strong>
           </div>
           <div className="meta-card">
-            <span>Panel set</span>
+            <span>{copy.panelSet}</span>
             <strong>{panels.length || 0}</strong>
           </div>
           <div className="meta-card">
-            <span>Quant state</span>
-            <strong>{activeAnalysis ? 'Live' : 'Idle'}</strong>
+            <span>{copy.quantState}</span>
+            <strong>{activeAnalysis ? copy.live : copy.idle}</strong>
           </div>
           <div className="meta-card meta-card-install">
-            <span>Install</span>
+            <span>{copy.install}</span>
             <strong>
               {installState === 'installed'
-                ? 'Desktop-ready'
+                ? copy.desktopReady
                 : installState === 'ready'
-                  ? 'App install available'
-                  : 'Browser mode'}
+                  ? copy.appInstallAvailable
+                  : copy.browserMode}
             </strong>
-            <small>{isOffline ? 'Offline now' : 'Offline-ready cache active'}</small>
+            <small>{isOffline ? copy.offlineNow : copy.offlineReady}</small>
             <div className="button-row compact">
               <button
                 type="button"
@@ -849,7 +876,7 @@ function App() {
                 disabled={installState !== 'ready'}
                 onClick={() => void handleInstallApp()}
               >
-                Install app
+                {copy.installApp}
               </button>
             </div>
           </div>
@@ -859,23 +886,23 @@ function App() {
       <section className="workflow-strip panel">
         <article>
           <span>01</span>
-          <h2>Acquire</h2>
-          <p>Bring raw TIFF/JPG/PNG into a local-first workbench.</p>
+          <h2>{copy.acquireTitle}</h2>
+          <p>{copy.acquireBody}</p>
         </article>
         <article>
           <span>02</span>
-          <h2>Auto draft</h2>
-          <p>Find the signal region, split lanes, and propose band rows with confidence scores.</p>
+          <h2>{copy.autoDraftTitle}</h2>
+          <p>{copy.autoDraftBody}</p>
         </article>
         <article>
           <span>03</span>
-          <h2>Correct</h2>
-          <p>Fine-tune lane, target, and reference ROIs in the same surface that runs quantification.</p>
+          <h2>{copy.correctTitle}</h2>
+          <p>{copy.correctBody}</p>
         </article>
         <article>
           <span>04</span>
-          <h2>Compose</h2>
-          <p>Export a board where labels, bands, chart, and warnings already agree.</p>
+          <h2>{copy.composeTitle}</h2>
+          <p>{copy.composeBody}</p>
         </article>
       </section>
 
@@ -883,26 +910,26 @@ function App() {
         <section className="panel upload-panel">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Source panels</p>
-              <h2>Image tray</h2>
+              <p className="eyebrow">{copy.sourcePanels}</p>
+              <h2>{copy.imageTray}</h2>
             </div>
             <div className="button-row">
               <button type="button" className="button ghost" onClick={handleLoadDemo}>
-                Load demo panel
+                {copy.loadDemoPanel}
               </button>
               <button
                 type="button"
                 className="button ghost"
                 onClick={() => projectInputRef.current?.click()}
               >
-                Open project
+                {copy.openProject}
               </button>
               <button
                 type="button"
                 className="button solid"
                 onClick={() => fileInputRef.current?.click()}
               >
-                Add raw image
+                {copy.addRawImage}
               </button>
             </div>
           </div>
@@ -929,8 +956,8 @@ function App() {
             onDragLeave={handleDropzoneDragLeave}
             onDrop={(event) => void handleDropzoneDrop(event)}
           >
-            <p>Drop assay images here, or load the demo to inspect the full workflow.</p>
-            <small>No upload leaves the browser in this build. TIFF, JPG, and PNG stay local.</small>
+            <p>{copy.dropzoneTitle}</p>
+            <small>{copy.dropzoneBody}</small>
           </div>
 
           <div className="thumb-list">
@@ -946,7 +973,12 @@ function App() {
                   <div className="thumb-copy">
                     <strong>{panel.name}</strong>
                     <span>
-                      {panel.bitDepth}-bit {panel.source === 'demo' ? 'demo assay' : panel.source === 'project' ? 'recovered panel' : 'uploaded panel'}
+                      {panel.bitDepth}-bit{' '}
+                      {panel.source === 'demo'
+                        ? copy.demoAssay
+                        : panel.source === 'project'
+                          ? copy.recoveredPanel
+                          : copy.uploadedPanel}
                     </span>
                   </div>
                   <span
@@ -956,14 +988,14 @@ function App() {
                       handleRemovePanel(panel.id)
                     }}
                   >
-                    remove
+                    {copy.remove}
                   </span>
                 </button>
               ))
             ) : (
               <div className="empty-state">
-                <strong>No assay loaded yet.</strong>
-                <p>Start with the demo if you want to inspect the quantification pipeline first.</p>
+                <strong>{copy.noAssayLoaded}</strong>
+                <p>{copy.noAssayBody}</p>
               </div>
             )}
           </div>
@@ -972,16 +1004,16 @@ function App() {
         <section className="panel inspector-panel">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Workbench</p>
-              <h2>Lane drafting</h2>
+              <p className="eyebrow">{copy.workbench}</p>
+              <h2>{copy.laneDrafting}</h2>
             </div>
             <div className="button-row">
               <span className={`pill ${isAnalyzing || isDrafting ? 'is-warm' : 'is-calm'}`}>
                 {isDrafting
-                  ? 'Drafting lanes'
+                  ? copy.draftingLanes
                   : isAnalyzing
-                    ? 'Recomputing quantification'
-                    : 'Analysis synced'}
+                    ? copy.recomputingQuantification
+                    : copy.analysisSynced}
               </span>
               <button
                 type="button"
@@ -989,7 +1021,7 @@ function App() {
                 onClick={handleRedraftActivePanel}
                 disabled={!activePanel}
               >
-                Re-draft active panel
+                {copy.redraftActivePanel}
               </button>
             </div>
           </div>
@@ -1081,8 +1113,8 @@ function App() {
                 </>
               ) : (
                 <div className="stage-placeholder">
-                  <strong>Image workbench is waiting for a panel.</strong>
-                  <p>Once an image is loaded, this view shows lane guides and band rows.</p>
+                  <strong>{copy.workbenchWaiting}</strong>
+                  <p>{copy.workbenchWaitingBody}</p>
                 </div>
               )}
             </div>
@@ -1090,20 +1122,20 @@ function App() {
             <aside className="rail">
               <div className="control-cluster">
                 <label>
-                  <span>Assay mode</span>
+                  <span>{copy.assayMode}</span>
                   <select
                     value={settings.mode}
                     onChange={(event) =>
                       updateSettings('mode', event.target.value as AnalysisMode)
                     }
                   >
-                    <option value="western">Western blot</option>
-                    <option value="dot">Dot blot</option>
-                    <option value="gel">Gel band</option>
+                    <option value="western">{copy.modeWestern}</option>
+                    <option value="dot">{copy.modeDot}</option>
+                    <option value="gel">{copy.modeGel}</option>
                   </select>
                 </label>
                 <label>
-                  <span>Lane count</span>
+                  <span>{copy.laneCount}</span>
                   <input
                     type="range"
                     min="2"
@@ -1124,10 +1156,10 @@ function App() {
                       }
                     }}
                   />
-                  <small>{settings.laneCount} lanes</small>
+                  <small>{copy.laneCountValue(settings.laneCount)}</small>
                 </label>
                 <label>
-                  <span>Target row</span>
+                  <span>{copy.targetRow}</span>
                   <input
                     type="range"
                     min="0.12"
@@ -1142,7 +1174,7 @@ function App() {
                 </label>
                 {settings.mode !== 'gel' ? (
                   <label>
-                    <span>{settings.mode === 'dot' ? 'Reference row' : 'Loading control row'}</span>
+                    <span>{settings.mode === 'dot' ? copy.referenceRow : copy.loadingControlRow}</span>
                     <input
                       type="range"
                       min="0.22"
@@ -1157,7 +1189,7 @@ function App() {
                   </label>
                 ) : null}
                 <label>
-                  <span>Band height</span>
+                  <span>{copy.bandHeight}</span>
                   <input
                     type="range"
                     min="0.05"
@@ -1171,7 +1203,7 @@ function App() {
                   <small>{percent(settings.bandHeight)}</small>
                 </label>
                 <label>
-                  <span>Background offset</span>
+                  <span>{copy.backgroundOffset}</span>
                   <input
                     type="range"
                     min="0.01"
@@ -1188,7 +1220,7 @@ function App() {
 
               <div className="control-cluster">
                 <label>
-                  <span>Brightness trim</span>
+                  <span>{copy.brightnessTrim}</span>
                   <input
                     type="range"
                     min="-50"
@@ -1205,7 +1237,7 @@ function App() {
                   </small>
                 </label>
                 <label>
-                  <span>Contrast trim</span>
+                  <span>{copy.contrastTrim}</span>
                   <input
                     type="range"
                     min="0.65"
@@ -1219,7 +1251,7 @@ function App() {
                   <small>{settings.contrast.toFixed(2)}x</small>
                 </label>
                 <label className="toggle">
-                  <span>Invert panel</span>
+                  <span>{copy.invertPanel}</span>
                   <input
                     type="checkbox"
                     checked={settings.invert}
@@ -1227,10 +1259,10 @@ function App() {
                   />
                 </label>
                 <div className="hint-card">
-                  <strong>ROI controls</strong>
-                  <p>Select lane, target, or reference in the image.</p>
-                  <p>Drag the ROI body to move it. Drag the small handles to resize.</p>
-                  <p>Arrow keys nudge. `[` and `]` still provide quick symmetric resizing.</p>
+                  <strong>{copy.roiControls}</strong>
+                  <p>{copy.roiControlsBody1}</p>
+                  <p>{copy.roiControlsBody2}</p>
+                  <p>{copy.roiControlsBody3}</p>
                 </div>
               </div>
             </aside>
@@ -1240,18 +1272,18 @@ function App() {
         <section className="panel ledger-panel">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Experimental ledger</p>
-              <h2>Sample sheet</h2>
+              <p className="eyebrow">{copy.experimentalLedger}</p>
+              <h2>{copy.sampleSheet}</h2>
             </div>
           </div>
 
           <div className="ledger-table">
             <div className="ledger-head">
-              <span>Lane</span>
-              <span>Sample</span>
-              <span>Group</span>
-              <span>Use</span>
-              <span>Normalized</span>
+              <span>{copy.lane}</span>
+              <span>{copy.sample}</span>
+              <span>{copy.group}</span>
+              <span>{copy.use}</span>
+              <span>{copy.normalized}</span>
             </div>
             {lanes.map((lane, index) => {
               const row = activeAnalysis?.laneResults[index]
@@ -1272,7 +1304,7 @@ function App() {
                       checked={lane.enabled}
                       onChange={(event) => updateLane(index, 'enabled', event.target.checked)}
                     />
-                    <span>{lane.enabled ? 'Included' : 'Muted'}</span>
+                    <span>{lane.enabled ? copy.included : copy.muted}</span>
                   </label>
                   <output>{row ? row.displayValue.toFixed(3) : '...'}</output>
                 </div>
@@ -1284,8 +1316,8 @@ function App() {
         <section className="panel quant-panel">
           <div className="section-head">
             <div>
-              <p className="eyebrow">Semi-quantification</p>
-              <h2>Numbers that stay attached to the image</h2>
+              <p className="eyebrow">{copy.semiQuantification}</p>
+              <h2>{copy.quantTitle}</h2>
             </div>
             <div className="button-row">
               <button
@@ -1294,7 +1326,7 @@ function App() {
                 onClick={handleExportProject}
                 disabled={!panels.length}
               >
-                Save project JSON
+                {copy.saveProjectJson}
               </button>
               <button
                 type="button"
@@ -1302,7 +1334,7 @@ function App() {
                 onClick={handleExportCsv}
                 disabled={!activeAnalysis}
               >
-                Download CSV
+                {copy.downloadCsv}
               </button>
               <button
                 type="button"
@@ -1310,7 +1342,7 @@ function App() {
                 onClick={() => void handleExportPdf()}
                 disabled={!selectedFigurePanels.length}
               >
-                Export PDF
+                {copy.exportPdf}
               </button>
               <button
                 type="button"
@@ -1318,7 +1350,7 @@ function App() {
                 onClick={handleExportSvg}
                 disabled={!selectedFigurePanels.length}
               >
-                Export SVG
+                {copy.exportSvg}
               </button>
             </div>
           </div>
@@ -1327,20 +1359,24 @@ function App() {
 
           <div className="metrics">
             <article>
-              <span>Average active value</span>
+              <span>{copy.averageActiveValue}</span>
               <strong>{activeAnalysis ? activeAnalysis.overview.meanDisplay.toFixed(3) : '0.000'}</strong>
             </article>
             <article>
-              <span>Dynamic range</span>
+              <span>{copy.dynamicRange}</span>
               <strong>{activeAnalysis ? activeAnalysis.overview.dynamicRange.toFixed(2) : '0.00'}x</strong>
             </article>
             <article>
-              <span>Saturation watch</span>
-              <strong>{activeAnalysis ? `${activeAnalysis.overview.saturationCount} lanes` : '0 lanes'}</strong>
+              <span>{copy.saturationWatch}</span>
+              <strong>
+                {activeAnalysis ? copy.laneCountValue(activeAnalysis.overview.saturationCount) : copy.laneCountValue(0)}
+              </strong>
             </article>
             <article>
-              <span>Low signal watch</span>
-              <strong>{activeAnalysis ? `${activeAnalysis.overview.lowSignalCount} lanes` : '0 lanes'}</strong>
+              <span>{copy.lowSignalWatch}</span>
+              <strong>
+                {activeAnalysis ? copy.laneCountValue(activeAnalysis.overview.lowSignalCount) : copy.laneCountValue(0)}
+              </strong>
             </article>
           </div>
 
@@ -1355,11 +1391,11 @@ function App() {
           <div className="compose-grid">
             <div className="compose-card">
               <div className="compose-head">
-                <strong>Statistics</strong>
-                <span>{activeAnalysis?.statistics.enabled ? 'Live' : 'Waiting'}</span>
+                <strong>{copy.statistics}</strong>
+                <span>{activeAnalysis?.statistics.enabled ? copy.live : copy.waiting}</span>
               </div>
               <label className="toggle">
-                <span>Show significance</span>
+                <span>{copy.showSignificance}</span>
                 <input
                   type="checkbox"
                   checked={statisticalSettings.enabled}
@@ -1367,7 +1403,7 @@ function App() {
                 />
               </label>
               <label>
-                <span>Test method</span>
+                <span>{copy.testMethod}</span>
                 <select
                   value={statisticalSettings.method}
                   onChange={(event) =>
@@ -1377,12 +1413,12 @@ function App() {
                     )
                   }
                 >
-                  <option value="welch-t">Welch t-test</option>
-                  <option value="permutation">Permutation</option>
+                  <option value="welch-t">{copy.testWelch}</option>
+                  <option value="permutation">{copy.testPermutation}</option>
                 </select>
               </label>
               <label>
-                <span>Comparison mode</span>
+                <span>{copy.comparisonMode}</span>
                 <select
                   value={statisticalSettings.comparisonMode}
                   onChange={(event) =>
@@ -1392,13 +1428,13 @@ function App() {
                     )
                   }
                 >
-                  <option value="vs-baseline">Against baseline group</option>
-                  <option value="all-pairs">All pairwise groups</option>
-                  <option value="anova-posthoc">ANOVA + post-hoc</option>
+                  <option value="vs-baseline">{copy.compareBaseline}</option>
+                  <option value="all-pairs">{copy.compareAllPairs}</option>
+                  <option value="anova-posthoc">{copy.compareAnova}</option>
                 </select>
               </label>
               <label>
-                <span>Baseline group</span>
+                <span>{copy.baselineGroup}</span>
                 <select
                   value={statisticalSettings.baselineGroup}
                   onChange={(event) =>
@@ -1413,7 +1449,7 @@ function App() {
                 </select>
               </label>
               <label>
-                <span>Multiplicity correction</span>
+                <span>{copy.multiplicityCorrection}</span>
                 <select
                   value={statisticalSettings.correction}
                   onChange={(event) =>
@@ -1423,12 +1459,12 @@ function App() {
                     )
                   }
                 >
-                  <option value="holm">Holm</option>
-                  <option value="none">None</option>
+                  <option value="holm">{copy.correctionHolm}</option>
+                  <option value="none">{copy.correctionNone}</option>
                 </select>
               </label>
               <label className="toggle">
-                <span>Show `ns`</span>
+                <span>{copy.showNs}</span>
                 <input
                   type="checkbox"
                   checked={statisticalSettings.showNonSignificant}
@@ -1439,36 +1475,39 @@ function App() {
               </label>
               <small>
                 {activeAnalysis?.statistics.comparisons.length
-                  ? `${activeAnalysis.statistics.comparisons.length} comparison(s) available via ${activeAnalysis.statistics.method}`
-                  : 'Need at least two groups with >=2 active replicates'}
+                  ? copy.comparisonSummary(
+                      activeAnalysis.statistics.comparisons.length,
+                      activeAnalysis.statistics.method,
+                    )
+                  : copy.needReplicates}
               </small>
               {activeAnalysis?.statistics.omnibusPValue != null ? (
-                <small>Omnibus ANOVA p = {activeAnalysis.statistics.omnibusPValue.toFixed(4)}</small>
+                <small>{copy.omnibusAnova(activeAnalysis.statistics.omnibusPValue.toFixed(4))}</small>
               ) : null}
             </div>
 
             <div className="compose-card">
               <div className="compose-head">
-                <strong>Figure board</strong>
-                <span>{selectedFigurePanels.length} panel(s)</span>
+                <strong>{copy.figureBoard}</strong>
+                <span>{copy.panelCount(selectedFigurePanels.length)}</span>
               </div>
               <label>
-                <span>Board title</span>
+                <span>{copy.boardTitle}</span>
                 <input
                   value={figureBoardSettings.title}
                   onChange={(event) => updateFigureBoardSettings('title', event.target.value)}
                 />
               </label>
               <label>
-                <span>Columns</span>
+                <span>{copy.columns}</span>
                 <select
                   value={figureBoardSettings.columns}
                   onChange={(event) =>
                     updateFigureBoardSettings('columns', Number(event.target.value) as 1 | 2)
                   }
                 >
-                  <option value="1">1 column</option>
-                  <option value="2">2 columns</option>
+                  <option value="1">{copy.oneColumn}</option>
+                  <option value="2">{copy.twoColumns}</option>
                 </select>
               </label>
               <div className="panel-picker">
@@ -1491,7 +1530,7 @@ function App() {
                   )
                 })}
               </div>
-              <small>Only analyzed panels can enter the publication board.</small>
+              <small>{copy.onlyAnalyzedPanels}</small>
             </div>
           </div>
 
@@ -1499,16 +1538,14 @@ function App() {
             <FigurePreview
               document={boardPreview}
               panelCount={selectedFigurePanels.length}
+              language={language}
             />
             <div className="notes">
-              <p>
-                The figure board is now generated from the same analysis objects used for on-screen quantification.
-                Statistical brackets, stars, crop order, and exported SVG/PDF all stay synchronized.
-              </p>
+              <p>{copy.figureBoardNote}</p>
               <ul>
-                <li>Baseline-vs-treatment and all-pair comparisons are available with optional Holm correction.</li>
-                <li>Multi-panel boards support labeled panels and shared publication styling.</li>
-                <li>Project JSON restores image trays, ROI drafts, statistics settings, and board layout choices.</li>
+                <li>{copy.figureBoardBullet1}</li>
+                <li>{copy.figureBoardBullet2}</li>
+                <li>{copy.figureBoardBullet3}</li>
               </ul>
             </div>
           </div>
@@ -1521,15 +1558,18 @@ function App() {
 function FigurePreview({
   document,
   panelCount,
+  language,
 }: {
   document: FigureDocument
   panelCount: number
+  language: Language
 }) {
+  const copy = getCopy(language)
   if (!panelCount) {
     return (
       <div className="figure-board is-empty">
-        <strong>Figure board preview</strong>
-        <p>Select one or more analyzed panels to assemble the publication board.</p>
+        <strong>{copy.figureBoardPreview}</strong>
+        <p>{copy.figureBoardPreviewBody}</p>
       </div>
     )
   }
@@ -1614,14 +1654,14 @@ function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
 }
 
-function modeLabel(mode: AnalysisMode) {
+function modeLabel(mode: AnalysisMode, language: Language) {
   if (mode === 'dot') {
-    return 'Dot blot'
+    return language === 'zh' ? '点杂交' : 'Dot blot'
   }
   if (mode === 'gel') {
-    return 'Gel band'
+    return language === 'zh' ? '凝胶条带' : 'Gel band'
   }
-  return 'Western blot'
+  return language === 'zh' ? '蛋白印迹' : 'Western blot'
 }
 
 function dedupe(values: string[]) {
@@ -1669,6 +1709,256 @@ function isSelected(
   target: SelectedRegion['target'],
 ) {
   return selected?.laneId === laneId && selected?.target === target
+}
+
+function getCopy(language: Language) {
+  if (language === 'zh') {
+    return {
+      pageTitle: 'BlotBench Studio | WB / Dot Blot / 凝胶排版与半定量',
+      pageDescription:
+        'BlotBench Studio 是一个本地优先的 WB、Dot Blot 与凝胶图像工作流，支持 ROI 校正、半定量、统计比较和可发表级组图导出。',
+      autosaveRecoveredTitle: '已恢复上一次本地会话。',
+      autosaveRecoveredBody: '当前工作区已从浏览器自动保存中恢复。',
+      dismiss: '关闭',
+      heroTitle: 'Western Blot / Dot Blot / 凝胶成像，从图到图表，不再拆成四个软件。',
+      heroBody:
+        '上传原始曝光图，自动草拟泳道与条带，在同一界面修正 ROI、完成归一化半定量，并直接导出适合论文排版的组图。',
+      languageToggle: 'English',
+      mode: '模式',
+      panelSet: '图板数',
+      quantState: '定量状态',
+      live: '已联动',
+      idle: '待分析',
+      install: '安装',
+      desktopReady: '可作桌面应用',
+      appInstallAvailable: '可安装应用',
+      browserMode: '浏览器模式',
+      offlineNow: '当前离线',
+      offlineReady: '支持离线缓存',
+      installApp: '安装应用',
+      acquireTitle: '导入',
+      acquireBody: '将原始 TIFF/JPG/PNG 直接带入本地优先工作台。',
+      autoDraftTitle: '自动草拟',
+      autoDraftBody: '定位信号区域、切分泳道，并给出目标条带行与置信度。',
+      correctTitle: '修正',
+      correctBody: '在同一界面微调泳道、目标带和内参 ROI。',
+      composeTitle: '出图',
+      composeBody: '导出标签、条带、柱状图和告警一致的发表级组图。',
+      sourcePanels: '源图面板',
+      imageTray: '图像托盘',
+      loadDemoPanel: '加载演示面板',
+      openProject: '打开项目',
+      addRawImage: '添加原始图像',
+      dropzoneTitle: '将实验图像拖到这里，或先加载演示查看完整流程。',
+      dropzoneBody: '当前版本不会上传到服务器。TIFF、JPG、PNG 全程留在本地浏览器。',
+      demoAssay: '演示样例',
+      recoveredPanel: '恢复面板',
+      uploadedPanel: '已上传面板',
+      remove: '移除',
+      noAssayLoaded: '还没有载入实验图。',
+      noAssayBody: '如果你想先看定量流程，可以从演示面板开始。',
+      workbench: '工作台',
+      laneDrafting: '泳道草拟',
+      draftingLanes: '正在草拟泳道',
+      recomputingQuantification: '正在重算定量',
+      analysisSynced: '分析已同步',
+      redraftActivePanel: '重新草拟当前面板',
+      workbenchWaiting: '图像工作台正在等待面板。',
+      workbenchWaitingBody: '载入图像后，这里会显示泳道引导线与条带区域。',
+      assayMode: '实验模式',
+      modeWestern: 'Western blot',
+      modeDot: 'Dot blot',
+      modeGel: '凝胶条带',
+      laneCount: '泳道数量',
+      laneCountValue: (count: number) => `${count} 条泳道`,
+      targetRow: '目标条带行',
+      referenceRow: '参考行',
+      loadingControlRow: '内参条带行',
+      bandHeight: '条带高度',
+      backgroundOffset: '背景偏移',
+      brightnessTrim: '亮度微调',
+      contrastTrim: '对比度微调',
+      invertPanel: '反相图像',
+      roiControls: 'ROI 操作',
+      roiControlsBody1: '在图像上选择泳道、目标带或参考带。',
+      roiControlsBody2: '拖动 ROI 本体可移动，拖动小圆点可缩放。',
+      roiControlsBody3: '方向键可微调，`[` 和 `]` 可快速对称缩放。',
+      experimentalLedger: '实验台账',
+      sampleSheet: '样本表',
+      lane: '泳道',
+      sample: '样本',
+      group: '分组',
+      use: '启用',
+      normalized: '归一化值',
+      included: '纳入',
+      muted: '静默',
+      semiQuantification: '半定量',
+      quantTitle: '让数值始终跟着图像走',
+      saveProjectJson: '保存项目 JSON',
+      downloadCsv: '下载 CSV',
+      exportPdf: '导出 PDF',
+      exportSvg: '导出 SVG',
+      averageActiveValue: '启用样本平均值',
+      dynamicRange: '动态范围',
+      saturationWatch: '饱和提醒',
+      lowSignalWatch: '低信号提醒',
+      statistics: '统计',
+      waiting: '等待中',
+      showSignificance: '显示显著性',
+      testMethod: '检验方法',
+      testWelch: 'Welch t 检验',
+      testPermutation: '置换检验',
+      comparisonMode: '比较模式',
+      compareBaseline: '相对基线组',
+      compareAllPairs: '全部成对比较',
+      compareAnova: 'ANOVA + 事后比较',
+      baselineGroup: '基线组',
+      multiplicityCorrection: '多重比较校正',
+      correctionHolm: 'Holm',
+      correctionNone: '无',
+      showNs: '显示 `ns`',
+      comparisonSummary: (count: number, method: string) => `${count} 个比较，方法：${method}`,
+      needReplicates: '至少需要两个分组且每组至少 2 个启用重复',
+      omnibusAnova: (p: string) => `整体 ANOVA p = ${p}`,
+      figureBoard: '组图拼板',
+      panelCount: (count: number) => `${count} 个面板`,
+      boardTitle: '组图标题',
+      columns: '列数',
+      oneColumn: '1 列',
+      twoColumns: '2 列',
+      onlyAnalyzedPanels: '只有已完成分析的面板才能进入发表组图。',
+      figureBoardNote:
+        '组图预览直接来自当前分析对象，统计括号、星号、裁剪顺序以及 SVG/PDF 导出会保持同步。',
+      figureBoardBullet1: '支持基线组比较和全成对比较，并可选 Holm 校正。',
+      figureBoardBullet2: '支持多面板排版、面板编号与统一发表风格。',
+      figureBoardBullet3: '项目 JSON 可恢复图像托盘、ROI 草稿、统计设置与组图布局。',
+      figureBoardPreview: '组图预览',
+      figureBoardPreviewBody: '请选择一个或多个已分析面板来拼装发表组图。',
+    }
+  }
+
+  return {
+    pageTitle: 'BlotBench Studio | WB / Dot Blot / Gel Layout and Semi-Quant',
+    pageDescription:
+      'BlotBench Studio is a local-first Western Blot, Dot Blot, and gel image workflow for ROI correction, semi-quantification, statistics, and publication-ready figure export.',
+    autosaveRecoveredTitle: 'Recovered the last local session.',
+    autosaveRecoveredBody: 'The current workspace was restored from browser autosave.',
+    dismiss: 'Dismiss',
+    heroTitle: 'Western Blot / Dot Blot / Gel figure line, not four disconnected apps.',
+    heroBody:
+      'Upload raw exposures, auto-draft lanes, correct ROIs in place, quantify against a loading control, and leave with a figure board that already looks like it belongs in a paper.',
+    languageToggle: '中文',
+    mode: 'Mode',
+    panelSet: 'Panel set',
+    quantState: 'Quant state',
+    live: 'Live',
+    idle: 'Idle',
+    install: 'Install',
+    desktopReady: 'Desktop-ready',
+    appInstallAvailable: 'App install available',
+    browserMode: 'Browser mode',
+    offlineNow: 'Offline now',
+    offlineReady: 'Offline-ready cache active',
+    installApp: 'Install app',
+    acquireTitle: 'Acquire',
+    acquireBody: 'Bring raw TIFF/JPG/PNG into a local-first workbench.',
+    autoDraftTitle: 'Auto draft',
+    autoDraftBody: 'Find the signal region, split lanes, and propose band rows with confidence scores.',
+    correctTitle: 'Correct',
+    correctBody: 'Fine-tune lane, target, and reference ROIs in the same surface that runs quantification.',
+    composeTitle: 'Compose',
+    composeBody: 'Export a board where labels, bands, chart, and warnings already agree.',
+    sourcePanels: 'Source panels',
+    imageTray: 'Image tray',
+    loadDemoPanel: 'Load demo panel',
+    openProject: 'Open project',
+    addRawImage: 'Add raw image',
+    dropzoneTitle: 'Drop assay images here, or load the demo to inspect the full workflow.',
+    dropzoneBody: 'No upload leaves the browser in this build. TIFF, JPG, and PNG stay local.',
+    demoAssay: 'demo assay',
+    recoveredPanel: 'recovered panel',
+    uploadedPanel: 'uploaded panel',
+    remove: 'remove',
+    noAssayLoaded: 'No assay loaded yet.',
+    noAssayBody: 'Start with the demo if you want to inspect the quantification pipeline first.',
+    workbench: 'Workbench',
+    laneDrafting: 'Lane drafting',
+    draftingLanes: 'Drafting lanes',
+    recomputingQuantification: 'Recomputing quantification',
+    analysisSynced: 'Analysis synced',
+    redraftActivePanel: 'Re-draft active panel',
+    workbenchWaiting: 'Image workbench is waiting for a panel.',
+    workbenchWaitingBody: 'Once an image is loaded, this view shows lane guides and band rows.',
+    assayMode: 'Assay mode',
+    modeWestern: 'Western blot',
+    modeDot: 'Dot blot',
+    modeGel: 'Gel band',
+    laneCount: 'Lane count',
+    laneCountValue: (count: number) => `${count} lanes`,
+    targetRow: 'Target row',
+    referenceRow: 'Reference row',
+    loadingControlRow: 'Loading control row',
+    bandHeight: 'Band height',
+    backgroundOffset: 'Background offset',
+    brightnessTrim: 'Brightness trim',
+    contrastTrim: 'Contrast trim',
+    invertPanel: 'Invert panel',
+    roiControls: 'ROI controls',
+    roiControlsBody1: 'Select lane, target, or reference in the image.',
+    roiControlsBody2: 'Drag the ROI body to move it. Drag the small handles to resize.',
+    roiControlsBody3: 'Arrow keys nudge. `[` and `]` still provide quick symmetric resizing.',
+    experimentalLedger: 'Experimental ledger',
+    sampleSheet: 'Sample sheet',
+    lane: 'Lane',
+    sample: 'Sample',
+    group: 'Group',
+    use: 'Use',
+    normalized: 'Normalized',
+    included: 'Included',
+    muted: 'Muted',
+    semiQuantification: 'Semi-quantification',
+    quantTitle: 'Numbers that stay attached to the image',
+    saveProjectJson: 'Save project JSON',
+    downloadCsv: 'Download CSV',
+    exportPdf: 'Export PDF',
+    exportSvg: 'Export SVG',
+    averageActiveValue: 'Average active value',
+    dynamicRange: 'Dynamic range',
+    saturationWatch: 'Saturation watch',
+    lowSignalWatch: 'Low signal watch',
+    statistics: 'Statistics',
+    waiting: 'Waiting',
+    showSignificance: 'Show significance',
+    testMethod: 'Test method',
+    testWelch: 'Welch t-test',
+    testPermutation: 'Permutation',
+    comparisonMode: 'Comparison mode',
+    compareBaseline: 'Against baseline group',
+    compareAllPairs: 'All pairwise groups',
+    compareAnova: 'ANOVA + post-hoc',
+    baselineGroup: 'Baseline group',
+    multiplicityCorrection: 'Multiplicity correction',
+    correctionHolm: 'Holm',
+    correctionNone: 'None',
+    showNs: 'Show `ns`',
+    comparisonSummary: (count: number, method: string) => `${count} comparison(s) available via ${method}`,
+    needReplicates: 'Need at least two groups with >=2 active replicates',
+    omnibusAnova: (p: string) => `Omnibus ANOVA p = ${p}`,
+    figureBoard: 'Figure board',
+    panelCount: (count: number) => `${count} panel(s)`,
+    boardTitle: 'Board title',
+    columns: 'Columns',
+    oneColumn: '1 column',
+    twoColumns: '2 columns',
+    onlyAnalyzedPanels: 'Only analyzed panels can enter the publication board.',
+    figureBoardNote:
+      'The figure board is now generated from the same analysis objects used for on-screen quantification. Statistical brackets, stars, crop order, and exported SVG/PDF all stay synchronized.',
+    figureBoardBullet1: 'Baseline-vs-treatment and all-pair comparisons are available with optional Holm correction.',
+    figureBoardBullet2: 'Multi-panel boards support labeled panels and shared publication styling.',
+    figureBoardBullet3: 'Project JSON restores image trays, ROI drafts, statistics settings, and board layout choices.',
+    figureBoardPreview: 'Figure board preview',
+    figureBoardPreviewBody: 'Select one or more analyzed panels to assemble the publication board.',
+  }
 }
 
 export default App

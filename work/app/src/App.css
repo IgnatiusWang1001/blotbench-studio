@@ -67,6 +67,17 @@
   color: var(--ink);
 }
 
+.masthead-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.language-toggle {
+  flex-shrink: 0;
+}
+
 .lede {
   max-width: 64ch;
   margin: 18px 0 0;
