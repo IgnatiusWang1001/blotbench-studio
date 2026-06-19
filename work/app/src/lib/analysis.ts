@@ -552,20 +552,32 @@ export function autoDraftFromSignal(
     signalBounds.y + signalBounds.height,
   )
   const segmentWidth = signalBounds.width / settings.laneCount
-  const laneCenters = Array.from({ length: settings.laneCount }, (_, index) => {
+  const profileMean = mean(Array.from(centerProfile))
+  const profilePeak = Math.max(...Array.from(centerProfile), profileMean)
+  const floorThreshold = profileMean + (profilePeak - profileMean) * 0.08
+  const rawCenters = Array.from({ length: settings.laneCount }, (_, index) => {
     const expected = signalBounds.x + segmentWidth * (index + 0.5)
-    const searchRadius = segmentWidth * 0.4
+    const searchRadius = segmentWidth * 0.45
     const start = Math.round(expected - searchRadius)
     const end = Math.round(expected + searchRadius)
-    return findPeakCenter(centerProfile, start, end)
+    const peak = findPeakCenter(centerProfile, start, end)
+    const peakValue = centerProfile[Math.max(0, Math.min(centerProfile.length - 1, peak))]
+    return peakValue >= floorThreshold ? peak : Math.round(expected)
   })
+  const laneCenters = enforceLaneCenterOrdering(
+    rawCenters,
+    signalBounds.x,
+    signalBounds.x + signalBounds.width,
+    segmentWidth,
+  )
   const centerDiffs = laneCenters
     .slice(1)
     .map((center, index) => center - laneCenters[index])
-    .filter((value) => value > 0)
+    .filter((value) => value > segmentWidth * 0.35)
+  const estimatedSpacing = median(centerDiffs) || segmentWidth
   const laneWidth = Math.max(
-    signalBounds.width / settings.laneCount * 0.72,
-    median(centerDiffs) * 0.76 || signalBounds.width / settings.laneCount * 0.72,
+    segmentWidth * 0.58,
+    estimatedSpacing * 0.72,
   )
   const bandWidth = laneWidth * (settings.mode === 'dot' ? 0.62 : 0.82)
   const laneHeight = signalBounds.height
@@ -838,6 +850,38 @@ function outerBandAboveThreshold(
     start: runs[0].start,
     end: runs[runs.length - 1].end,
   }
+}
+
+function enforceLaneCenterOrdering(
+  centers: number[],
+  minX: number,
+  maxX: number,
+  segmentWidth: number,
+) {
+  if (!centers.length) {
+    return centers
+  }
+
+  const minSpacing = Math.max(6, segmentWidth * 0.42)
+  const left = Math.round(minX + segmentWidth * 0.28)
+  const right = Math.round(maxX - segmentWidth * 0.28)
+  const ordered = [...centers]
+
+  ordered[0] = clamp(ordered[0], left, right)
+
+  for (let index = 1; index < ordered.length; index += 1) {
+    const minAllowed = ordered[index - 1] + minSpacing
+    const maxAllowed = right - minSpacing * (ordered.length - 1 - index)
+    ordered[index] = clamp(ordered[index], minAllowed, maxAllowed)
+  }
+
+  for (let index = ordered.length - 2; index >= 0; index -= 1) {
+    const maxAllowed = ordered[index + 1] - minSpacing
+    const minAllowed = left + minSpacing * index
+    ordered[index] = clamp(ordered[index], minAllowed, maxAllowed)
+  }
+
+  return ordered
 }
 
 function detectBandCenterY(

@@ -91,6 +91,37 @@ describe('analysis helpers', () => {
     expect(drafts[8].lane.x).toBeGreaterThan(760)
   })
 
+  it('keeps lane centers ordered and distributed when some local peaks are weak', () => {
+    const width = 720
+    const height = 240
+    const signal = new Float32Array(width * height)
+    const display = new Uint8ClampedArray(width * height)
+    display.fill(232)
+
+    const laneXs = [36, 130, 224, 318, 412, 506, 600]
+    laneXs.forEach((laneX, index) => {
+      const strength = index === 2 || index === 5 ? 52 : 150
+      for (let y = 96; y < 114; y += 1) {
+        for (let x = laneX; x < laneX + 30; x += 1) {
+          signal[y * width + x] = strength
+          display[y * width + x] = strength > 100 ? 58 : 146
+        }
+      }
+    })
+
+    const gray = { width, height, signal, display }
+    const bounds = detectSignalBounds(gray)
+    const drafts = autoDraftFromSignal(gray, bounds, { ...settings, laneCount: 7 })
+    const centers = drafts.map((draft) => draft.lane.x + draft.lane.width / 2)
+
+    expect(drafts).toHaveLength(7)
+    for (let index = 1; index < centers.length; index += 1) {
+      expect(centers[index]).toBeGreaterThan(centers[index - 1] + 20)
+    }
+    expect(centers[0]).toBeLessThan(80)
+    expect(centers[6]).toBeGreaterThan(610)
+  })
+
   it('summarizes group means and sem', () => {
     const summary = summarizeGroups([
       {
