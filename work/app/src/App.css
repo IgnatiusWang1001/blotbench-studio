@@ -603,6 +603,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+.ledger-metric {
+  display: grid;
+  gap: 2px;
+}
+
+.ledger-metric small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
 .status-line {
   display: flex;
 }

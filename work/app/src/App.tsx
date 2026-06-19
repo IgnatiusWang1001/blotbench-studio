@@ -1316,6 +1316,7 @@ function App() {
             </div>
             {lanes.map((lane, index) => {
               const row = activeAnalysis?.laneResults[index]
+              const diagnosis = row ? describeLaneDiagnosis(row, settings.mode, language) : null
               return (
                 <div key={lane.id} className="ledger-row">
                   <strong>{index + 1}</strong>
@@ -1335,7 +1336,15 @@ function App() {
                     />
                     <span>{lane.enabled ? copy.included : copy.muted}</span>
                   </label>
-                  <output>{row ? row.displayValue.toFixed(3) : '...'}</output>
+                  <div className="ledger-metric">
+                    <output>{row ? row.displayValue.toFixed(3) : '...'}</output>
+                    {row ? (
+                      <small>
+                        T {row.primaryDensity.toFixed(2)} | R {row.referenceDensity?.toFixed(2) ?? 'n/a'}
+                      </small>
+                    ) : null}
+                    {diagnosis ? <small>{diagnosis}</small> : null}
+                  </div>
                 </div>
               )
             })}
@@ -1632,6 +1641,34 @@ function innerPercentRect(lane: Rect, rect: Rect) {
 
 function percent(value: number) {
   return `${Math.round(value * 100)}%`
+}
+
+function describeLaneDiagnosis(
+  row: AnalysisResult['laneResults'][number],
+  mode: AnalysisMode,
+  language: Language,
+) {
+  if (row.primaryDensity <= 0.0001) {
+    return language === 'zh'
+      ? '目标框减背景后接近 0，通常表示目标框没压中条带或条带太弱。'
+      : 'Target density is near 0 after background subtraction; the target ROI may miss the band or the band is too weak.'
+  }
+
+  if (mode !== 'gel' && (!row.referenceDensity || row.referenceDensity <= 0.0001)) {
+    return language === 'zh'
+      ? '内参框信号接近 0，归一化会失真。请检查青色框是否压中内参条带。'
+      : 'Loading-control density is near 0; normalization may be unstable. Check whether the teal ROI sits on the control band.'
+  }
+
+  if (row.displayValue <= 0.0001) {
+    return language === 'zh'
+      ? '结果接近 0，优先检查目标框和背景位置。'
+      : 'The final value is near 0. Check the target ROI and local background placement first.'
+  }
+
+  return language === 'zh'
+    ? '若结果异常，先比对 T/R 两项是否与肉眼观察一致。'
+    : 'If the value looks wrong, compare T and R first against what you see visually.'
 }
 
 function slugify(value: string) {
