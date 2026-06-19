@@ -169,7 +169,7 @@ export function buildDefaultDrafts({
     const bandWidth = clamp(
       laneWidth * bandWidthFactor * settings.bandWidthScale,
       Math.max(8, laneWidth * 0.28),
-      laneWidth * 0.98,
+      laneWidth,
     )
     const bandX = laneX + (laneWidth - bandWidth) / 2
     const primaryY = clamp(
@@ -510,7 +510,6 @@ export function retuneDraftsForSettings({
 }) {
   const laneWidthRatio = safeRatio(next.laneWidthScale, previous.laneWidthScale)
   const laneHeightRatio = safeRatio(next.laneHeight, previous.laneHeight)
-  const bandWidthRatio = safeRatio(next.bandWidthScale, previous.bandWidthScale)
   const bandHeightRatio = safeRatio(next.bandHeight, previous.bandHeight)
   const primaryShiftY = (next.primaryY - previous.primaryY) * bounds.height
   const referenceShiftY = (next.referenceY - previous.referenceY) * bounds.height
@@ -540,11 +539,14 @@ export function retuneDraftsForSettings({
       reference = moveRect(reference, 0, referenceShiftY, lane)
     }
 
-    if (bandWidthRatio !== 1 || bandHeightRatio !== 1) {
-      primary = scaleRectFromCenter(primary, bandWidthRatio, bandHeightRatio, lane)
-      reference = reference
-        ? scaleRectFromCenter(reference, bandWidthRatio, bandHeightRatio, lane)
-        : null
+    if (next.bandWidthScale !== previous.bandWidthScale) {
+      primary = resizeBandWidthForLane(primary, lane, next)
+      reference = reference ? resizeBandWidthForLane(reference, lane, next) : null
+    }
+
+    if (bandHeightRatio !== 1) {
+      primary = scaleRectFromCenter(primary, 1, bandHeightRatio, lane)
+      reference = reference ? scaleRectFromCenter(reference, 1, bandHeightRatio, lane) : null
     }
 
     return {
@@ -1017,7 +1019,7 @@ function estimateBandRect(
   const fallbackWidth = clamp(
     lane.width * fallbackFactor * settings.bandWidthScale,
     Math.max(8, lane.width * 0.28),
-    lane.width * 0.98,
+    lane.width,
   )
   const baseline = mean(Array.from(profile))
   const peak = Math.max(...Array.from(profile), baseline)
@@ -1078,7 +1080,7 @@ function estimateBandRect(
   const scaledWidth = clamp(
     detectedWidth * settings.bandWidthScale,
     lane.width * (settings.mode === 'dot' ? 0.28 : 0.34),
-    lane.width * 0.98,
+    lane.width,
   )
   const detectedCenter = (left + right) / 2
   const start = clamp(detectedCenter - scaledWidth / 2, 0, smoothed.length - scaledWidth)
@@ -1257,6 +1259,20 @@ function scaleRectFromCenter(
   const x = clamp(rect.x + rect.width / 2 - width / 2, bounds.x, bounds.x + bounds.width - width)
   const y = clamp(rect.y + rect.height / 2 - height / 2, bounds.y, bounds.y + bounds.height - height)
   return { x, y, width, height }
+}
+
+function resizeBandWidthForLane(
+  rect: Rect,
+  lane: Rect,
+  settings: AnalysisSettings,
+) {
+  const factor = settings.mode === 'dot' ? 0.66 : 0.82
+  const targetWidth = clamp(
+    lane.width * factor * settings.bandWidthScale,
+    Math.max(8, lane.width * 0.24),
+    lane.width,
+  )
+  return scaleRectFromCenter(rect, targetWidth / Math.max(rect.width, 1), 1, lane)
 }
 
 function remapRectBetweenParents(rect: Rect, from: Rect, to: Rect) {

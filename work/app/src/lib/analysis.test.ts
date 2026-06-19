@@ -240,5 +240,6 @@ describe('analysis helpers', () => {
 
     expect(widened.primary.width).toBeGreaterThan(original.primary.width)
     expect(widened.reference?.width ?? 0).toBeGreaterThan(original.reference?.width ?? 0)
+    expect(widened.primary.width).toBeGreaterThanOrEqual(widened.lane.width * 0.95)
   })
 })
