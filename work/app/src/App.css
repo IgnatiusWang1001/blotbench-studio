@@ -500,43 +500,6 @@
   background: rgba(49, 77, 86, 0.12);
 }
 
-.resize-handle {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(63, 53, 42, 0.82);
-  background: #f8eee0;
-  z-index: 3;
-  cursor: nwse-resize;
-  box-shadow: 0 0 0 2px rgba(255, 251, 245, 0.92);
-}
-
-.resize-n,
-.resize-s {
-  cursor: ns-resize;
-}
-
-.resize-e,
-.resize-w {
-  cursor: ew-resize;
-}
-
-.resize-ne,
-.resize-sw {
-  cursor: nesw-resize;
-}
-
-.resize-nw,
-.resize-se {
-  cursor: nwse-resize;
-}
-
-.resize-handle:hover {
-  background: #c25d34;
-  border-color: #8f4123;
-}
-
 .rail {
   display: grid;
   gap: 14px;

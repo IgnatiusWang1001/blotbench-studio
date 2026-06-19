@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ChangeEvent,
-  CSSProperties,
   DragEvent as ReactDragEvent,
   KeyboardEvent,
   MouseEvent as ReactMouseEvent,
@@ -15,8 +14,6 @@ import {
   defaultSettings,
   draftLaneLayout,
   readFileAsDataUrl,
-  resizeRegionFromHandle,
-  resizeSelectedRegion,
   syncLaneConfigs,
   type AnalysisResult,
   type AnalysisSettings,
@@ -46,7 +43,6 @@ import type {
   LaneDraft,
   PanelAsset,
   Rect,
-  ResizeHandle,
   SelectedRegion,
   StatisticalSettings,
 } from './types'
@@ -128,7 +124,6 @@ function App() {
     startX: number
     startY: number
     region: SelectedRegion
-    resizeHandle?: ResizeHandle
   } | null>(null)
   const [showAutosaveBanner, setShowAutosaveBanner] = useState(Boolean(restoredProject))
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
@@ -672,14 +667,12 @@ function App() {
   function handleOverlayMouseDown(
     event: ReactMouseEvent<HTMLButtonElement>,
     region: SelectedRegion,
-    resizeHandle?: ResizeHandle,
   ) {
     setSelectedRegion(region)
     setDragState({
       startX: event.clientX,
       startY: event.clientY,
       region,
-      resizeHandle,
     })
   }
 
@@ -704,16 +697,7 @@ function App() {
       ...current,
       [activePanelId]: current[activePanelId].map((draft) =>
         draft.id === dragState.region.laneId
-          ? dragState.resizeHandle
-            ? resizeRegionFromHandle(
-                draft,
-                dragState.region,
-                dragState.resizeHandle,
-                deltaX,
-                deltaY,
-                bounds,
-              )
-            : applyRegionDelta(draft, dragState.region, deltaX, deltaY, bounds)
+          ? applyRegionDelta(draft, dragState.region, deltaX, deltaY, bounds)
           : draft,
       ),
     }))
@@ -730,19 +714,6 @@ function App() {
       y: 0,
       width: activeAnalysis?.width ?? 1000,
       height: activeAnalysis?.height ?? 620,
-    }
-
-    if (event.key === '[' || event.key === ']') {
-      const delta = event.key === '[' ? -6 : 6
-      setDraftsByPanelId((current) => ({
-        ...current,
-        [activePanelId]: current[activePanelId].map((draft) =>
-          draft.id === selectedRegion.laneId
-            ? resizeSelectedRegion(draft, selectedRegion, delta, delta, bounds)
-            : draft,
-        ),
-      }))
-      return
     }
 
     const step = event.shiftKey ? 8 : 3
@@ -1117,13 +1088,6 @@ function App() {
                           }
                           onClick={() => handleSelectRegion({ laneId: geometry.id, target: 'primary' })}
                         />
-                        {renderResizeHandles(
-                          geometry.id,
-                          'primary',
-                          geometry.primary,
-                          geometry.lane,
-                          handleOverlayMouseDown,
-                        )}
                         {geometry.reference ? (
                           <>
                             <button
@@ -1142,13 +1106,6 @@ function App() {
                                 handleSelectRegion({ laneId: geometry.id, target: 'reference' })
                               }
                             />
-                            {renderResizeHandles(
-                              geometry.id,
-                              'reference',
-                              geometry.reference,
-                              geometry.lane,
-                              handleOverlayMouseDown,
-                            )}
                           </>
                         ) : null}
                       </div>
@@ -1653,31 +1610,6 @@ function FigurePreview({
   )
 }
 
-function renderResizeHandles(
-  laneId: string,
-  target: SelectedRegion['target'],
-  rect: Rect,
-  lane: Rect,
-  onMouseDown: (
-    event: ReactMouseEvent<HTMLButtonElement>,
-    region: SelectedRegion,
-    resizeHandle?: ResizeHandle,
-  ) => void,
-) {
-  const handles: ResizeHandle[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
-
-  return handles.map((handle) => (
-    <button
-      key={`${laneId}-${target}-${handle}`}
-      type="button"
-      className={`resize-handle resize-${handle}`}
-      style={handleStyle(rect, lane, handle)}
-      onMouseDown={(event) => onMouseDown(event, { laneId, target }, handle)}
-      aria-label={`Resize ${target} ${handle}`}
-    />
-  ))
-}
-
 function toPercentRect(rect: Rect, analysis: AnalysisResult | null) {
   const width = analysis?.width ?? 1000
   const height = analysis?.height ?? 620
@@ -1695,26 +1627,6 @@ function innerPercentRect(lane: Rect, rect: Rect) {
     top: `${((rect.y - lane.y) / lane.height) * 100}%`,
     width: `${(rect.width / lane.width) * 100}%`,
     height: `${(rect.height / lane.height) * 100}%`,
-  }
-}
-
-function handleStyle(rect: Rect, lane: Rect, handle: ResizeHandle): CSSProperties {
-  const anchor = innerPercentRect(lane, rect)
-
-  const map: Record<ResizeHandle, CSSProperties> = {
-    n: { left: 'calc(50% - 5px)', top: '-5px' },
-    s: { left: 'calc(50% - 5px)', bottom: '-5px' },
-    e: { right: '-5px', top: 'calc(50% - 5px)' },
-    w: { left: '-5px', top: 'calc(50% - 5px)' },
-    ne: { right: '-5px', top: '-5px' },
-    nw: { left: '-5px', top: '-5px' },
-    se: { right: '-5px', bottom: '-5px' },
-    sw: { left: '-5px', bottom: '-5px' },
-  }
-
-  return {
-    ...anchor,
-    ...map[handle],
   }
 }
 
@@ -1875,9 +1787,9 @@ function getCopy(language: Language) {
       contrastTrim: '对比度微调',
       invertPanel: '反相图像',
       roiControls: 'ROI 操作',
-      roiControlsBody1: '蓝色虚线框是泳道 ROI，橙色框是目标条带，青色框是内参条带。',
-      roiControlsBody2: '拖动 ROI 本体可移动；边缘和角上的小圆点是缩放手柄，用于调整宽度和高度。',
-      roiControlsBody3: '先用左侧滑杆粗调泳道宽度/高度，再对单条 ROI 微调；方向键可微调，`[` 和 `]` 可快速对称缩放。',
+      roiControlsBody1: '蓝色虚线框是泳道范围；中间短橙框是目标条带检测区；短青框是内参检测区。',
+      roiControlsBody2: '现在画布里只保留短检测框，只能拖拽位置，不再显示会遮挡图像的缩放柱体。',
+      roiControlsBody3: '先用左侧滑杆粗调泳道宽度/高度，再拖动短框对准条带位置；方向键仍可微调。',
       experimentalLedger: '实验台账',
       sampleSheet: '样本表',
       lane: '泳道',
@@ -2022,9 +1934,9 @@ function getCopy(language: Language) {
     contrastTrim: 'Contrast trim',
     invertPanel: 'Invert panel',
     roiControls: 'ROI controls',
-    roiControlsBody1: 'The dashed blue frame is the lane ROI, the amber frame is the target band, and the teal frame is the loading control.',
-    roiControlsBody2: 'Drag a ROI body to move it. The small dots on edges and corners are resize handles for width and height.',
-    roiControlsBody3: 'Use the lane width and lane height sliders for coarse fitting first, then fine-tune a single ROI. Arrow keys nudge; `[` and `]` still resize symmetrically.',
+    roiControlsBody1: 'The dashed blue frame is the lane range; the short amber box is the target-band detection region; the short teal box is the loading control.',
+    roiControlsBody2: 'The canvas now keeps only the short detection boxes. The large resize pillars are removed so the blot stays visible.',
+    roiControlsBody3: 'Use the lane width and lane height sliders for coarse fitting first, then drag the short boxes into position. Arrow keys still nudge the selected ROI.',
     experimentalLedger: 'Experimental ledger',
     sampleSheet: 'Sample sheet',
     lane: 'Lane',
