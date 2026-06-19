@@ -3,6 +3,7 @@ import {
   autoDraftFromSignal,
   buildDefaultDrafts,
   detectSignalBounds,
+  retuneDraftsForSettings,
   resizeRegionFromHandle,
   summarizeGroups,
   type AnalysisSettings,
@@ -221,5 +222,23 @@ describe('analysis helpers', () => {
     expect(resized.primary.height).toBeGreaterThanOrEqual(draft.primary.height)
     expect(resized.primary.x).toBeGreaterThanOrEqual(draft.lane.x)
     expect(resized.primary.y).toBeGreaterThanOrEqual(draft.lane.y)
+  })
+
+  it('retunes existing drafts when band width scale changes', () => {
+    const original = buildDefaultDrafts({
+      width: 1000,
+      height: 600,
+      settings: { ...settings, laneCount: 1, bandWidthScale: 1 },
+    })[0]
+
+    const widened = retuneDraftsForSettings({
+      drafts: [original],
+      previous: { ...settings, laneCount: 1, bandWidthScale: 1 },
+      next: { ...settings, laneCount: 1, bandWidthScale: 1.3 },
+      bounds: { x: 0, y: 0, width: 1000, height: 600 },
+    })[0]
+
+    expect(widened.primary.width).toBeGreaterThan(original.primary.width)
+    expect(widened.reference?.width ?? 0).toBeGreaterThan(original.reference?.width ?? 0)
   })
 })

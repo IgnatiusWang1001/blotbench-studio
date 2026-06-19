@@ -15,6 +15,8 @@ import {
   defaultSettings,
   draftLaneLayout,
   readFileAsDataUrl,
+  resizeRegionFromHandle,
+  retuneDraftsForSettings,
   syncLaneConfigs,
   type AnalysisResult,
   type AnalysisSettings,
@@ -44,6 +46,7 @@ import type {
   LaneDraft,
   PanelAsset,
   Rect,
+  ResizeHandle,
   SelectedRegion,
   StatisticalSettings,
 } from './types'
@@ -126,6 +129,7 @@ function App() {
     startX: number
     startY: number
     region: SelectedRegion
+    handle?: ResizeHandle
   } | null>(null)
   const [showAutosaveBanner, setShowAutosaveBanner] = useState(Boolean(restoredProject))
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
@@ -368,10 +372,35 @@ function App() {
     if (!activePanelId) {
       return
     }
+    const previousSettings = settingsByPanelId[activePanelId] ?? settings
+    const nextSettings = { ...previousSettings, [key]: value }
     setSettingsByPanelId((current) => ({
       ...current,
-      [activePanelId]: { ...(current[activePanelId] ?? settings), [key]: value },
+      [activePanelId]: nextSettings,
     }))
+
+    if (
+      draftsByPanelId[activePanelId]?.length &&
+      ['laneWidthScale', 'laneHeight', 'bandWidthScale', 'bandHeight', 'primaryY', 'referenceY'].includes(
+        String(key),
+      )
+    ) {
+      const bounds = {
+        x: 0,
+        y: 0,
+        width: activeAnalysis?.width ?? 1000,
+        height: activeAnalysis?.height ?? 620,
+      }
+      setDraftsByPanelId((current) => ({
+        ...current,
+        [activePanelId]: retuneDraftsForSettings({
+          drafts: current[activePanelId] ?? [],
+          previous: previousSettings,
+          next: nextSettings,
+          bounds,
+        }),
+      }))
+    }
   }
 
   function updateStatisticalSettings<K extends keyof StatisticalSettings>(
@@ -700,16 +729,20 @@ function App() {
   function handleOverlayMouseDown(
     event: ReactMouseEvent<HTMLButtonElement>,
     region: SelectedRegion,
+    handle?: ResizeHandle,
   ) {
+    event.preventDefault()
+    event.stopPropagation()
     setSelectedRegion(region)
     setDragState({
       startX: event.clientX,
       startY: event.clientY,
       region,
+      handle,
     })
   }
 
-  function handleOverlayMouseUp(event: ReactMouseEvent<HTMLDivElement>) {
+  function handleOverlayMouseMove(event: ReactMouseEvent<HTMLDivElement>) {
     if (!dragState || !activePanelId) {
       return
     }
@@ -730,10 +763,34 @@ function App() {
       ...current,
       [activePanelId]: current[activePanelId].map((draft) =>
         draft.id === dragState.region.laneId
-          ? applyRegionDelta(draft, dragState.region, deltaX, deltaY, bounds)
+          ? dragState.handle
+            ? resizeRegionFromHandle(
+                draft,
+                dragState.region,
+                dragState.handle,
+                deltaX,
+                deltaY,
+                dragState.region.target === 'lane' ? bounds : draft.lane,
+              )
+            : applyRegionDelta(draft, dragState.region, deltaX, deltaY, bounds)
           : draft,
       ),
     }))
+    setDragState((current) =>
+      current
+        ? {
+            ...current,
+            startX: event.clientX,
+            startY: event.clientY,
+          }
+        : null,
+    )
+  }
+
+  function handleOverlayMouseUp() {
+    if (!dragState) {
+      return
+    }
     setDragState(null)
   }
 
@@ -782,6 +839,31 @@ function App() {
 
   function handleRestoreAutosaveDismiss() {
     setShowAutosaveBanner(false)
+  }
+
+  function renderResizeHandles(
+    laneId: string,
+    target: SelectedRegion['target'],
+  ) {
+    const handles: ResizeHandle[] = ['nw', 'ne', 'sw', 'se']
+    return handles.map((handle) => (
+      <button
+        key={`${laneId}-${target}-${handle}`}
+        type="button"
+        className={`resize-handle resize-${handle}`}
+        onMouseDown={(event) =>
+          handleOverlayMouseDown(
+            event,
+            {
+              laneId,
+              target,
+            },
+            handle,
+          )
+        }
+        onClick={(event) => event.stopPropagation()}
+      />
+    ))
   }
 
   function handleDropzoneDragOver(event: ReactDragEvent<HTMLDivElement>) {
@@ -1084,7 +1166,13 @@ function App() {
                     alt={activePanel.name}
                     className="stage-image"
                   />
-                  <div className="overlay" style={overlayStyle(stageMetrics)} onMouseUp={handleOverlayMouseUp}>
+                  <div
+                    className="overlay"
+                    style={overlayStyle(stageMetrics)}
+                    onMouseMove={handleOverlayMouseMove}
+                    onMouseUp={handleOverlayMouseUp}
+                    onMouseLeave={handleOverlayMouseUp}
+                  >
                     {activeGeometries.map((geometry, index) => (
                       <div
                         key={geometry.id}
@@ -1108,6 +1196,9 @@ function App() {
                           }
                           onClick={() => handleSelectRegion({ laneId: geometry.id, target: 'lane' })}
                         />
+                        {isSelected(selectedRegion, geometry.id, 'lane')
+                          ? renderResizeHandles(geometry.id, 'lane')
+                          : null}
                         <button
                           type="button"
                           className={`band-outline primary ${
@@ -1122,6 +1213,9 @@ function App() {
                           }
                           onClick={() => handleSelectRegion({ laneId: geometry.id, target: 'primary' })}
                         />
+                        {isSelected(selectedRegion, geometry.id, 'primary')
+                          ? renderResizeHandles(geometry.id, 'primary')
+                          : null}
                         {geometry.reference ? (
                           <>
                             <button
@@ -1140,6 +1234,9 @@ function App() {
                                 handleSelectRegion({ laneId: geometry.id, target: 'reference' })
                               }
                             />
+                            {isSelected(selectedRegion, geometry.id, 'reference')
+                              ? renderResizeHandles(geometry.id, 'reference')
+                              : null}
                           </>
                         ) : null}
                       </div>

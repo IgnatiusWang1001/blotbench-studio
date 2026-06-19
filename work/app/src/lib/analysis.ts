@@ -497,6 +497,66 @@ export function resizeRegionFromHandle(
   }
 }
 
+export function retuneDraftsForSettings({
+  drafts,
+  previous,
+  next,
+  bounds,
+}: {
+  drafts: LaneDraft[]
+  previous: AnalysisSettings
+  next: AnalysisSettings
+  bounds: Rect
+}) {
+  const laneWidthRatio = safeRatio(next.laneWidthScale, previous.laneWidthScale)
+  const laneHeightRatio = safeRatio(next.laneHeight, previous.laneHeight)
+  const bandWidthRatio = safeRatio(next.bandWidthScale, previous.bandWidthScale)
+  const bandHeightRatio = safeRatio(next.bandHeight, previous.bandHeight)
+  const primaryShiftY = (next.primaryY - previous.primaryY) * bounds.height
+  const referenceShiftY = (next.referenceY - previous.referenceY) * bounds.height
+
+  return drafts.map((draft) => {
+    let lane = draft.lane
+    let primary = draft.primary
+    let reference = draft.reference
+
+    if (laneWidthRatio !== 1 || laneHeightRatio !== 1) {
+      const resizedLane = scaleRectFromCenter(
+        lane,
+        laneWidthRatio,
+        laneHeightRatio,
+        bounds,
+      )
+      primary = remapRectBetweenParents(primary, lane, resizedLane)
+      reference = reference ? remapRectBetweenParents(reference, lane, resizedLane) : null
+      lane = resizedLane
+    }
+
+    if (primaryShiftY !== 0) {
+      primary = moveRect(primary, 0, primaryShiftY, lane)
+    }
+
+    if (reference && referenceShiftY !== 0) {
+      reference = moveRect(reference, 0, referenceShiftY, lane)
+    }
+
+    if (bandWidthRatio !== 1 || bandHeightRatio !== 1) {
+      primary = scaleRectFromCenter(primary, bandWidthRatio, bandHeightRatio, lane)
+      reference = reference
+        ? scaleRectFromCenter(reference, bandWidthRatio, bandHeightRatio, lane)
+        : null
+    }
+
+    return {
+      ...draft,
+      lane,
+      primary,
+      reference,
+      confidence: Math.max(draft.confidence, 0.55),
+    }
+  })
+}
+
 export function exportDraftSnapshot(drafts: LaneDraft[]) {
   return drafts.map((draft) => ({
     ...draft,
@@ -1184,6 +1244,43 @@ function fitRectInside(rect: Rect, bounds: Rect): Rect {
     width,
     height,
   }
+}
+
+function scaleRectFromCenter(
+  rect: Rect,
+  widthRatio: number,
+  heightRatio: number,
+  bounds: Rect,
+): Rect {
+  const width = clamp(rect.width * widthRatio, 8, bounds.width)
+  const height = clamp(rect.height * heightRatio, 8, bounds.height)
+  const x = clamp(rect.x + rect.width / 2 - width / 2, bounds.x, bounds.x + bounds.width - width)
+  const y = clamp(rect.y + rect.height / 2 - height / 2, bounds.y, bounds.y + bounds.height - height)
+  return { x, y, width, height }
+}
+
+function remapRectBetweenParents(rect: Rect, from: Rect, to: Rect) {
+  const relX = from.width > 0 ? (rect.x - from.x) / from.width : 0
+  const relY = from.height > 0 ? (rect.y - from.y) / from.height : 0
+  const relWidth = from.width > 0 ? rect.width / from.width : 1
+  const relHeight = from.height > 0 ? rect.height / from.height : 1
+
+  return fitRectInside(
+    {
+      x: to.x + relX * to.width,
+      y: to.y + relY * to.height,
+      width: to.width * relWidth,
+      height: to.height * relHeight,
+    },
+    to,
+  )
+}
+
+function safeRatio(next: number, previous: number) {
+  if (!Number.isFinite(next) || !Number.isFinite(previous) || previous === 0) {
+    return 1
+  }
+  return next / previous
 }
 
 function smoothProfile(profile: Float32Array, radius: number) {
