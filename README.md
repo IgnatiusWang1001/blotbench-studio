@@ -82,6 +82,7 @@ In that case, the safer workflow is:
    - `Lane count`: number of sample lanes
    - `Lane width`: overall lane width
    - `Lane height`: overall lane height
+   - `Detection box width`: widen or narrow the short amber/teal boxes without changing the full lane frame
    - `Target row`: vertical position for the target-band ROI
    - `Loading control row`: vertical position for the loading-control ROI
    - `Band height`: height of the short detection boxes
@@ -93,9 +94,31 @@ In that case, the safer workflow is:
    - drag the short amber box onto the target band
    - drag the short teal box onto the loading-control band
    - keep both boxes inside the correct lane
+   - if the band is broad, smeared, tailed, or almost touches the next lane, increase `Detection box width` before dragging
 5. Check the sample sheet and group labels on the left.
 6. Inspect normalized values and diagnostics before trusting the result.
 7. Export CSV, SVG, or PDF if the values look correct.
+
+## What To Do For Broad Or Smeared Bands
+
+Some Western blot images do not contain narrow compact bands.
+Common difficult cases include:
+
+- broad upper bands
+- lateral smear or tailing
+- partial overlap with a neighboring lane
+- diffuse target signal with a relatively compact loading-control band
+
+For these cases:
+
+1. Increase `Detection box width` first.
+2. Keep the short amber box centered on the darkest horizontal span of the target band.
+3. Do not let the amber box cross into the next lane.
+4. Keep some blank background above and below the band so background subtraction remains meaningful.
+5. If the loading-control band is narrower, keep the teal box smaller and centered on that lower band instead of matching the amber box mechanically.
+
+If the bottom crop preview does not look like the band you intended to measure, do not trust the ratio yet.
+Re-draft the active panel once, then widen the detection box and drag again.
 
 ## Why A Lane Can Show `0.000`
 

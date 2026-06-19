@@ -78,5 +78,9 @@ describe('project snapshot', () => {
 
     expect(restored.panels).toHaveLength(1)
     expect(restored.activePanelId).toBe('legacy-panel')
+    expect(restored.settingsByPanelId['legacy-panel'].bandWidthScale).toBe(1)
+    expect(restored.statisticalSettingsByPanelId['legacy-panel'].method).toBe(
+      defaultStatisticalSettings.method,
+    )
   })
 })

@@ -1222,6 +1222,20 @@ function App() {
                   <small>{percent(settings.laneHeight)}</small>
                 </label>
                 <label>
+                  <span>{copy.bandWidth}</span>
+                  <input
+                    type="range"
+                    min="0.7"
+                    max="1.45"
+                    step="0.01"
+                    value={settings.bandWidthScale}
+                    onChange={(event) =>
+                      updateSettings('bandWidthScale', Number(event.target.value))
+                    }
+                  />
+                  <small>{percent(settings.bandWidthScale)}</small>
+                </label>
+                <label>
                   <span>{copy.targetRow}</span>
                   <input
                     type="range"
@@ -1875,6 +1889,7 @@ function getCopy(language: Language) {
       laneCountValue: (count: number) => `${count} 条泳道`,
       laneWidth: '泳道宽度',
       laneHeight: '泳道高度',
+      bandWidth: '检测框宽度',
       targetRow: '目标条带行',
       referenceRow: '参考行',
       loadingControlRow: '内参条带行',
@@ -1885,8 +1900,8 @@ function getCopy(language: Language) {
       invertPanel: '反相图像',
       roiControls: 'ROI 操作',
       roiControlsBody1: '蓝色虚线框是同一样本的泳道范围；短橙框用于目标蛋白条带，短青框用于内参蛋白条带。',
-      roiControlsBody2: '只有当目标蛋白和内参蛋白共享同一泳道顺序、且都出现在这张上传图里时，这种双框定量才有意义。',
-      roiControlsBody3: '如果目标图和内参图来自两张不同图片或不同膜，请先在外部按同一泳道顺序拼好，再导入这里拖拽短框定位。',
+      roiControlsBody2: '如果目标条带较宽、发散、拖尾或相邻泳道靠得很近，请先调大“检测框宽度”，再把短框拖到条带最黑的横向范围中央。',
+      roiControlsBody3: '只有当目标蛋白和内参蛋白共享同一泳道顺序、且都出现在这张上传图里时，这种双框定量才有意义。若来自不同图片或不同膜，请先在外部按同一泳道顺序拼好，再导入这里。',
       experimentalLedger: '实验台账',
       sampleSheet: '样本表',
       lane: '泳道',
@@ -2024,6 +2039,7 @@ function getCopy(language: Language) {
     laneCountValue: (count: number) => `${count} lanes`,
     laneWidth: 'Lane width',
     laneHeight: 'Lane height',
+    bandWidth: 'Detection box width',
     targetRow: 'Target row',
     referenceRow: 'Reference row',
     loadingControlRow: 'Loading control row',
@@ -2034,11 +2050,11 @@ function getCopy(language: Language) {
     invertPanel: 'Invert panel',
     roiControls: 'ROI controls',
     roiControlsBody1:
-      'The dashed blue frame is the lane range for one sample; the short amber box is for the target protein; the short teal box is for the loading control.',
+      'The dashed blue frame marks the lane range for one sample; the short amber box is for the target protein; the short teal box is for the loading control.',
     roiControlsBody2:
-      'This only makes quantitative sense when target and loading-control regions belong to the same lane order and are both present in the uploaded panel.',
+      'If a target band is broad, smeared, tailing, or crowded against a neighboring lane, increase Detection box width first, then drag the short box onto the darkest horizontal span of that band.',
     roiControlsBody3:
-      'If target and loading control come from separate images or separate membranes, align or assemble them externally first, then import the combined panel and drag the short boxes into position.',
+      'This only makes quantitative sense when target and loading-control regions share the same lane order and both appear in the uploaded panel. If they come from separate images or membranes, align them externally first.',
     experimentalLedger: 'Experimental ledger',
     sampleSheet: 'Sample sheet',
     lane: 'Lane',

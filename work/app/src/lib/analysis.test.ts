@@ -15,6 +15,7 @@ const settings: AnalysisSettings = {
   laneGap: 0.02,
   laneHeight: 0.42,
   laneWidthScale: 0.72,
+  bandWidthScale: 1,
   primaryY: 0.3,
   referenceY: 0.65,
   bandHeight: 0.1,
@@ -122,6 +123,39 @@ describe('analysis helpers', () => {
     }
     expect(centers[0]).toBeLessThan(80)
     expect(centers[6]).toBeGreaterThan(610)
+  })
+
+  it('adapts target ROI width for broad smeared bands', () => {
+    const width = 560
+    const height = 240
+    const signal = new Float32Array(width * height)
+    const display = new Uint8ClampedArray(width * height)
+    display.fill(232)
+
+    const laneXs = [40, 150, 270, 390]
+    laneXs.forEach((laneX) => {
+      for (let y = 42; y < 88; y += 1) {
+        for (let x = laneX; x < laneX + 76; x += 1) {
+          signal[y * width + x] = 168
+          display[y * width + x] = 58
+        }
+      }
+      for (let y = 146; y < 168; y += 1) {
+        for (let x = laneX + 14; x < laneX + 54; x += 1) {
+          signal[y * width + x] = 126
+          display[y * width + x] = 84
+        }
+      }
+    })
+
+    const gray = { width, height, signal, display }
+    const bounds = detectSignalBounds(gray)
+    const drafts = autoDraftFromSignal(gray, bounds, settings)
+    const defaultBandWidth = drafts[0].lane.width * 0.82
+
+    expect(drafts).toHaveLength(4)
+    expect(drafts[0].primary.width).toBeGreaterThan(defaultBandWidth)
+    expect(drafts[0].primary.width).toBeGreaterThan(55)
   })
 
   it('summarizes group means and sem', () => {

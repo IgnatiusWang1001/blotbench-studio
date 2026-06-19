@@ -19,6 +19,7 @@ export interface AnalysisSettings {
   laneGap: number
   laneHeight: number
   laneWidthScale: number
+  bandWidthScale: number
   primaryY: number
   referenceY: number
   bandHeight: number
@@ -107,6 +108,7 @@ export const defaultSettings: AnalysisSettings = {
   laneGap: 0.018,
   laneHeight: 0.42,
   laneWidthScale: 0.72,
+  bandWidthScale: 1,
   primaryY: 0.31,
   referenceY: 0.69,
   bandHeight: 0.11,
@@ -164,7 +166,11 @@ export function buildDefaultDrafts({
     const slotX = laneInsetPx + index * (baseLaneWidth + laneGapPx)
     const laneX = slotX + (baseLaneWidth - laneWidth) / 2
     const lane: Rect = { x: laneX, y: laneTop, width: laneWidth, height: laneHeight }
-    const bandWidth = laneWidth * bandWidthFactor
+    const bandWidth = clamp(
+      laneWidth * bandWidthFactor * settings.bandWidthScale,
+      Math.max(8, laneWidth * 0.28),
+      laneWidth * 0.98,
+    )
     const bandX = laneX + (laneWidth - bandWidth) / 2
     const primaryY = clamp(
       height * settings.primaryY - bandHeightPx / 2,
@@ -582,7 +588,6 @@ export function autoDraftFromSignal(
     .filter((value) => value > segmentWidth * 0.35)
   const estimatedSpacing = median(centerDiffs) || segmentWidth
   const laneWidth = Math.max(segmentWidth * 0.5, estimatedSpacing * settings.laneWidthScale)
-  const bandWidth = laneWidth * (settings.mode === 'dot' ? 0.62 : 0.82)
   const laneHeight = Math.max(gray.height * 0.12, signalBounds.height * settings.laneHeight)
   const laneTop = clamp(
     signalBounds.y + signalBounds.height * 0.5 - laneHeight / 2,
@@ -621,19 +626,25 @@ export function autoDraftFromSignal(
             bandHeight,
           )
 
+    const primaryBand = estimateBandRect(gray, lane, primaryCenter, bandHeight, settings)
+    const referenceBand =
+      referenceCenter === null
+        ? null
+        : estimateBandRect(gray, lane, referenceCenter, bandHeight, settings)
+
     const primary: Rect = {
-      x: laneX + (laneWidth - bandWidth) / 2,
+      x: primaryBand.x,
       y: clamp(primaryCenter - bandHeight / 2, lane.y, lane.y + lane.height - bandHeight),
-      width: bandWidth,
+      width: primaryBand.width,
       height: bandHeight,
     }
     const reference =
-      referenceCenter === null
+      referenceBand === null || referenceCenter === null
         ? null
         : {
-            x: laneX + (laneWidth - bandWidth) / 2,
+            x: referenceBand.x,
             y: clamp(referenceCenter - bandHeight / 2, lane.y, lane.y + lane.height - bandHeight),
-            width: bandWidth,
+            width: referenceBand.width,
             height: bandHeight,
           }
 
@@ -917,6 +928,105 @@ function detectBandCenterY(
   const smoothed = smoothProfile(profile, Math.max(3, Math.round(bandHeight / 4)))
   const peakY = findPeakCenter(smoothed, 0, smoothed.length - 1)
   return y0 + peakY
+}
+
+function estimateBandRect(
+  gray: GrayImage,
+  lane: Rect,
+  centerY: number,
+  bandHeight: number,
+  settings: AnalysisSettings,
+) {
+  const x0 = Math.max(0, Math.floor(lane.x))
+  const x1 = Math.min(gray.width, Math.ceil(lane.x + lane.width))
+  const y0 = Math.max(0, Math.floor(centerY - bandHeight * 0.45))
+  const y1 = Math.min(gray.height, Math.ceil(centerY + bandHeight * 0.45))
+  const profile = new Float32Array(Math.max(1, x1 - x0))
+
+  for (let x = x0; x < x1; x += 1) {
+    let total = 0
+    let count = 0
+    for (let y = y0; y < y1; y += 1) {
+      total += gray.signal[y * gray.width + x]
+      count += 1
+    }
+    profile[x - x0] = count ? total / count : 0
+  }
+
+  const fallbackFactor = settings.mode === 'dot' ? 0.62 : 0.82
+  const fallbackWidth = clamp(
+    lane.width * fallbackFactor * settings.bandWidthScale,
+    Math.max(8, lane.width * 0.28),
+    lane.width * 0.98,
+  )
+  const baseline = mean(Array.from(profile))
+  const peak = Math.max(...Array.from(profile), baseline)
+
+  if (peak <= baseline + 1) {
+    return {
+      x: lane.x + (lane.width - fallbackWidth) / 2,
+      width: fallbackWidth,
+    }
+  }
+
+  const smoothed = smoothProfile(profile, Math.max(2, Math.round(profile.length * 0.04)))
+  const centerLocal = clamp(lane.width / 2, 0, smoothed.length - 1)
+  const peakIndex = findPeakCenter(
+    smoothed,
+    centerLocal - smoothed.length * 0.26,
+    centerLocal + smoothed.length * 0.26,
+  )
+  const threshold =
+    baseline + (peak - baseline) * (settings.mode === 'dot' ? 0.26 : 0.18)
+  const gapAllowance = Math.max(1, Math.round(smoothed.length * 0.025))
+  let left = peakIndex
+  let right = peakIndex
+  let gap = 0
+
+  while (left > 0) {
+    const nextValue = smoothed[left - 1]
+    if (nextValue >= threshold) {
+      left -= 1
+      gap = 0
+      continue
+    }
+    if (gap < gapAllowance) {
+      left -= 1
+      gap += 1
+      continue
+    }
+    break
+  }
+
+  gap = 0
+  while (right < smoothed.length - 1) {
+    const nextValue = smoothed[right + 1]
+    if (nextValue >= threshold) {
+      right += 1
+      gap = 0
+      continue
+    }
+    if (gap < gapAllowance) {
+      right += 1
+      gap += 1
+      continue
+    }
+    break
+  }
+
+  const detectedWidth = Math.max(1, right - left + 1)
+  const scaledWidth = clamp(
+    detectedWidth * settings.bandWidthScale,
+    lane.width * (settings.mode === 'dot' ? 0.28 : 0.34),
+    lane.width * 0.98,
+  )
+  const detectedCenter = (left + right) / 2
+  const start = clamp(detectedCenter - scaledWidth / 2, 0, smoothed.length - scaledWidth)
+
+  return {
+    x: lane.x + start,
+    width: scaledWidth,
+  }
 }
 
 function sampleDensity(gray: GrayImage, rect: Rect) {

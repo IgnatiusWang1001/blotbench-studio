@@ -1,5 +1,5 @@
 import type { AnalysisSettings, LaneResult } from './analysis'
-import { exportDraftSnapshot } from './analysis'
+import { defaultSettings, exportDraftSnapshot } from './analysis'
 import type {
   DecodedGrayImage,
   FigureBoardSettings,
@@ -8,6 +8,7 @@ import type {
   PanelAsset,
   StatisticalSettings,
 } from '../types'
+import { defaultStatisticalSettings } from './statistics'
 
 const AUTOSAVE_KEY = 'blotbench-autosave-v1'
 
@@ -112,6 +113,9 @@ export function parseProjectSnapshot(raw: string): RestoredProjectSnapshot {
     throw new Error('Unsupported project file.')
   }
 
+  const fallbackSettings = parsed.settings ?? defaultSettings
+  const fallbackStats = parsed.statisticalSettings ?? defaultStatisticalSettings
+
   return {
     ...parsed,
     panels: parsed.panels.map((panel) => ({
@@ -120,10 +124,37 @@ export function parseProjectSnapshot(raw: string): RestoredProjectSnapshot {
       decodedGray: reviveDecodedGray(panel.decodedGray),
       source: panel.source ?? 'project',
     })),
-    settingsByPanelId: parsed.settingsByPanelId ?? {},
-    statisticalSettingsByPanelId: parsed.statisticalSettingsByPanelId ?? {},
-    lanesByPanelId: parsed.lanesByPanelId ?? {},
+    settingsByPanelId: Object.fromEntries(
+      parsed.panels.map((panel) => [
+        panel.id,
+        normalizeAnalysisSettings(
+          parsed.settingsByPanelId?.[panel.id] ?? fallbackSettings,
+        ),
+      ]),
+    ),
+    statisticalSettingsByPanelId: Object.fromEntries(
+      parsed.panels.map((panel) => [
+        panel.id,
+        {
+          ...fallbackStats,
+          ...(parsed.statisticalSettingsByPanelId?.[panel.id] ?? {}),
+        },
+      ]),
+    ),
+    lanesByPanelId: Object.fromEntries(
+      parsed.panels.map((panel) => [
+        panel.id,
+        parsed.lanesByPanelId?.[panel.id] ?? parsed.lanes ?? [],
+      ]),
+    ),
     figureBoardSettings: parsed.figureBoardSettings,
+  }
+}
+
+function normalizeAnalysisSettings(settings?: Partial<AnalysisSettings>) {
+  return {
+    ...defaultSettings,
+    ...settings,
   }
 }
 
